@@ -29,7 +29,14 @@ phase2/
 
 ## Running on Colab (quickstart)
 
-Open [`colab/phase2_colab.ipynb`](colab/phase2_colab.ipynb) in Colab and **Runtime → Change runtime type → GPU**. The notebook installs dependencies, clones the repo, boots a local vLLM OpenAI-compatible server, generates one fixed story, **assembles a novel-style `final_story.md`** (no interaction needed), and replays both a successful playthrough and an exception playthrough — all inside the single runtime.
+Two Colab entry points, both under `colab/`:
+
+| Notebook | How it works | When to use |
+|---|---|---|
+| [`phase2_colab.ipynb`](colab/phase2_colab.ipynb) | `git clone` this repo into `/content/`, then drive the CLI | Recommended — tracks future repo commits automatically |
+| [`phase2_standalone.ipynb`](colab/phase2_standalone.ipynb) | **No git clone.** Every module + transcript is embedded as a `%%writefile` cell | Use when the repo is unreachable (network blocked, private fork, graded-offline demo) |
+
+Pick one, set **Runtime → Change runtime type → GPU**, and run top-to-bottom. Both boot a local vLLM OpenAI-compatible server, generate one fixed story, **assemble a novel-style `final_story.md`** (no interaction needed), and replay both a successful playthrough and an exception playthrough — all inside the single runtime.
 
 Model is auto-selected from GPU VRAM:
 
