@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+logs/
+data/*.json
+!data/.gitkeep
+env_setup.log
+.DS_Store
+.vscode/
