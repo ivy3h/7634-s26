@@ -27,16 +27,32 @@ phase2/
 └── transcripts/               example playthroughs
 ```
 
-## One-time setup
+## Running on Colab (quickstart)
+
+Open [`colab/phase2_colab.ipynb`](colab/phase2_colab.ipynb) in Colab and **Runtime → Change runtime type → GPU**. The notebook installs dependencies, clones the repo, boots a local vLLM OpenAI-compatible server, generates one fixed story, and replays both a successful playthrough and an exception playthrough — all inside the single runtime.
+
+Model is auto-selected from GPU VRAM:
+
+| GPU | Model | Weights (bf16) |
+|---|---|---|
+| T4 (16 GB)  | `Qwen/Qwen2.5-3B-Instruct` | ~6 GB |
+| L4 (24 GB)  | `Qwen/Qwen2.5-7B-Instruct` | ~14 GB |
+| A100 (40 GB)| `Qwen/Qwen3.5-9B`          | ~18 GB |
+
+The notebook is self-contained — no SLURM, no external services, no Anthropic API key.
+
+## Running on the Skynet cluster
+
+### One-time setup
 
 ```bash
 bash scripts/setup_env.sh
 # creates /coc/pskynet6/jhe478/conda_envs/phase2 with vllm + openai + torch
 ```
 
-## Running
+### Cluster workflow
 
-### 1 — Start the vLLM server on a GPU node
+#### 1 — Start the vLLM server on a GPU node
 
 ```bash
 sbatch scripts/launch_vllm_server.sbatch
@@ -51,7 +67,7 @@ Override model / port / memory via env vars:
 sbatch --export=ALL,PHASE2_MODEL=Qwen/Qwen3-8B,PHASE2_GPU_MEM=0.85 scripts/launch_vllm_server.sbatch
 ```
 
-### 2 — Smoke-test
+#### 2 — Smoke-test
 
 ```bash
 export LLM_ENDPOINT="$(cat logs/vllm_endpoint.txt)"
@@ -59,7 +75,7 @@ export LLM_MODEL="Qwen/Qwen3.5-9B"
 python scripts/test_llm.py
 ```
 
-### 3 — Build a fixed story + plan + world
+#### 3 — Build a fixed story + plan + world
 
 ```bash
 python main.py build --data-dir data
@@ -82,7 +98,7 @@ Re-run the engine against the **same** fixed story without regenerating:
 python main.py build --data-dir data --skip-story   # rebuilds plan + world only
 ```
 
-### 4 — Play (interactive)
+#### 4 — Play (interactive)
 
 ```bash
 python main.py play --data-dir data --log-dir logs
