@@ -6,7 +6,7 @@ be swapped without touching the rest of the code.
 
 Endpoint and model come from env vars, never hard-coded:
     LLM_ENDPOINT   default http://localhost:8000/v1
-    LLM_MODEL      default Qwen/Qwen3.5-9B
+    LLM_MODEL      default Qwen/Qwen3-8B
     LLM_API_KEY    default EMPTY (vLLM ignores it)
 """
 from __future__ import annotations
@@ -26,7 +26,7 @@ from openai import (
 )
 
 _client: OpenAI | None = None
-_DEFAULT_MODEL = "Qwen/Qwen3.5-9B"
+_DEFAULT_MODEL = "Qwen/Qwen3-8B"
 
 
 def _get_client() -> OpenAI:

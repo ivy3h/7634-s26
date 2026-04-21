@@ -18,7 +18,7 @@ set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 
 # --- configurables -----------------------------------------------------
-MODEL="${PHASE2_MODEL:-Qwen/Qwen3.5-9B}"
+MODEL="${PHASE2_MODEL:-Qwen/Qwen3-8B}"
 ENV_NAME="${PHASE2_ENV:-/coc/pskynet6/jhe478/conda_envs/phase2}"
 DTYPE="${PHASE2_DTYPE:-bfloat16}"
 MAX_MODEL_LEN="${PHASE2_MAX_MODEL_LEN:-8192}"

@@ -37,7 +37,7 @@ Model is auto-selected from GPU VRAM:
 |---|---|---|
 | T4 (16 GB)  | `Qwen/Qwen2.5-3B-Instruct` | ~6 GB |
 | L4 (24 GB)  | `Qwen/Qwen2.5-7B-Instruct` | ~14 GB |
-| A100 (40 GB)| `Qwen/Qwen3.5-9B`          | ~18 GB |
+| A100 (40 GB)| `Qwen/Qwen3-8B`          | ~18 GB |
 
 The notebook is self-contained — no SLURM, no external services, no Anthropic API key.
 
@@ -71,7 +71,7 @@ sbatch --export=ALL,PHASE2_MODEL=Qwen/Qwen3-8B,PHASE2_GPU_MEM=0.85 scripts/launc
 
 ```bash
 export LLM_ENDPOINT="$(cat logs/vllm_endpoint.txt)"
-export LLM_MODEL="Qwen/Qwen3.5-9B"
+export LLM_MODEL="Qwen/Qwen3-8B"
 python scripts/test_llm.py
 ```
 
@@ -160,7 +160,7 @@ All turns are logged in `logs/turns.jsonl`; drama-manager decisions (classificat
 | Var | Default | Purpose |
 |---|---|---|
 | `LLM_ENDPOINT` | `http://localhost:8000/v1` | Where `openai` client points |
-| `LLM_MODEL`    | `Qwen/Qwen3.5-9B`          | Model name passed to vLLM |
+| `LLM_MODEL`    | `Qwen/Qwen3-8B`          | Model name passed to vLLM |
 | `LLM_API_KEY`  | `EMPTY`                    | vLLM ignores but `openai` client requires a non-empty value |
 | `PHASE2_ENV`   | `/coc/pskynet6/jhe478/conda_envs/phase2` | Conda env for SLURM jobs |
 | `PHASE2_GPU_MEM` | `0.88`                   | vLLM gpu_memory_utilization |

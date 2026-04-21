@@ -25,7 +25,7 @@ if [[ -f logs/vllm_endpoint.txt ]]; then
 else
   echo "WARNING: logs/vllm_endpoint.txt missing; LLM calls will fail" >&2
 fi
-export LLM_MODEL="${PHASE2_MODEL:-Qwen/Qwen3.5-9B}"
+export LLM_MODEL="${PHASE2_MODEL:-Qwen/Qwen3-8B}"
 
 CONDA_BASE="$(/nethome/jhe478/miniconda3/bin/conda info --base)"
 # shellcheck disable=SC1091
