@@ -13,8 +13,16 @@ import json
 import sys
 from pathlib import Path
 
+# Reconfigure stdio to UTF-8 so LLM-generated unicode (em dashes, smart quotes,
+# accented characters) never crashes the batch runner on locale-less SLURM shells.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except AttributeError:
+        pass
+
 from game_engine import EngineConfig, GameEngine
-from phase1_story_generator import generate_full_story, load_checkpoint
+from phase1_story_generator import assemble_story, generate_full_story, load_checkpoint
 from story_to_plan import build_plan, load_plan
 from world_builder import build_world, load_world, save_world
 
@@ -54,6 +62,15 @@ def cmd_play(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_assemble(args: argparse.Namespace) -> int:
+    data_dir = Path(args.data_dir)
+    case_file = load_checkpoint(data_dir / "case_file.json")
+    plot_points = load_checkpoint(data_dir / "plot_points.json")
+    story_bible = load_checkpoint(data_dir / "story_bible.json")
+    assemble_story(case_file, plot_points, story_bible, out_path=args.out)
+    return 0
+
+
 def cmd_replay(args: argparse.Namespace) -> int:
     data_dir = Path(args.data_dir)
     plan = load_plan(data_dir / "plan.json")
@@ -86,6 +103,11 @@ def main(argv: list[str] | None = None) -> int:
     sp_build.add_argument("--skip-story", action="store_true",
                           help="Skip Phase I if data/plot_points.json already exists.")
     sp_build.set_defaults(func=cmd_build)
+
+    sp_asm = subs.add_parser("assemble", help="Assemble a novel-style markdown from an existing plot_points.json")
+    sp_asm.add_argument("--data-dir", default="data")
+    sp_asm.add_argument("--out", default="data/final_story.md")
+    sp_asm.set_defaults(func=cmd_assemble)
 
     sp_play = subs.add_parser("play", help="Launch interactive game")
     sp_play.add_argument("--data-dir", default="data")

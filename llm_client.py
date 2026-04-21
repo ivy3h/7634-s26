@@ -42,6 +42,22 @@ def _resolve_model(model: str | None) -> str:
     return model or os.environ.get("LLM_MODEL", _DEFAULT_MODEL)
 
 
+_THINK_BLOCK = re.compile(r"<think>.*?</think>\s*", re.DOTALL | re.IGNORECASE)
+
+
+def _strip_think(text: str) -> str:
+    """Qwen3 and other reasoning models wrap inner monologue in <think>...</think>.
+    We want only the final answer, so strip the tag and anything inside.
+    Also tolerate an unclosed <think>... tail from a truncated response by cutting
+    at the first </think>."""
+    text = _THINK_BLOCK.sub("", text)
+    if "</think>" in text:
+        text = text.split("</think>", 1)[-1]
+    if text.lstrip().startswith("<think>"):
+        text = text.lstrip()[len("<think>"):]
+    return text.strip()
+
+
 def chat(
     messages: list[dict[str, str]],
     *,
@@ -49,6 +65,7 @@ def chat(
     max_tokens: int = 1024,
     temperature: float = 0.7,
     retries: int = 8,
+    enable_thinking: bool = False,
     **kwargs: Any,
 ) -> str:
     """Send a chat request and return the assistant message content.
@@ -56,9 +73,21 @@ def chat(
     Retries transient connection / timeout / rate-limit errors with
     exponential backoff so the caller can fire requests while the vLLM
     server is still warming up.
+
+    `enable_thinking` controls Qwen3's reasoning mode. Defaults to False —
+    we want terse structured outputs, not monologue. vLLM accepts this via
+    the `chat_template_kwargs` extra body field; we also strip any residual
+    <think> blocks from the response.
     """
     client = _get_client()
     resolved_model = _resolve_model(model)
+
+    # Merge any user-provided extra_body so we don't clobber it.
+    extra_body = dict(kwargs.pop("extra_body", {}) or {})
+    ctk = dict(extra_body.get("chat_template_kwargs", {}) or {})
+    ctk.setdefault("enable_thinking", enable_thinking)
+    extra_body["chat_template_kwargs"] = ctk
+
     last_err: Exception | None = None
     for attempt in range(retries):
         try:
@@ -67,9 +96,10 @@ def chat(
                 messages=messages,
                 max_tokens=max_tokens,
                 temperature=temperature,
+                extra_body=extra_body,
                 **kwargs,
             )
-            return (resp.choices[0].message.content or "").strip()
+            return _strip_think((resp.choices[0].message.content or "").strip())
         except (APIConnectionError, APITimeoutError, InternalServerError, RateLimitError) as err:
             last_err = err
             backoff = min(60.0, 2.0 ** attempt)

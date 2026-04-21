@@ -371,6 +371,222 @@ def run_meta_controller(
 
 
 # ---------------------------------------------------------------------------
+# Stage 4: assemble a complete novel-style markdown (Prologue + Chapters + Resolution + Epilogue)
+# ---------------------------------------------------------------------------
+_HANDCUFF_RE = re.compile(r"[^.]*handcuff[^.]*\.", re.IGNORECASE)
+
+
+def _clean_plot_points(plot_points: list[dict[str, Any]], story_bible: dict[str, Any]) -> list[dict[str, Any]]:
+    """Scrub premature arrests and leaked real-criminal names from individual
+    plot-point narratives so the chapters can hide the truth until the end."""
+    real = story_bible["real_criminal"]
+    fake = story_bible["fake_suspect"]
+    victim = story_bible["victim_name"]
+
+    resolution_markers = (
+        "you are under arrest", "i am arresting", "handcuffs clicked",
+        "placed under arrest", "you're under arrest", "handcuffs snapped",
+    )
+    premature_rewrites = [
+        (re.compile(rf"you['’]re under arrest(?: for)?[^.]*", re.IGNORECASE),
+         f"you are a person of interest in the death of {victim}"),
+        (re.compile(rf"you are under arrest(?: for)?[^.]*", re.IGNORECASE),
+         f"you are a person of interest in the death of {victim}"),
+        (re.compile(rf"i am arresting[^.]*", re.IGNORECASE),
+         f"I need you to come in for further questioning regarding {victim}'s death"),
+    ]
+
+    cleaned: list[dict[str, Any]] = []
+    for p in plot_points:
+        narrative = p.get("narrative", "")
+        lower = narrative.lower()
+
+        for pat, repl in premature_rewrites:
+            narrative = pat.sub(repl, narrative)
+        if "handcuff" in lower:
+            narrative = _HANDCUFF_RE.sub(
+                "The detective made a mental note to arrange a formal interview.", narrative
+            )
+        # If the real criminal is named alongside any resolution marker, rename
+        # them to the fake suspect — we must not reveal the killer in the body.
+        if real and fake and real in narrative and any(mk in narrative.lower() for mk in resolution_markers):
+            narrative = narrative.replace(real, fake)
+
+        q = dict(p)
+        q["narrative"] = narrative
+        cleaned.append(q)
+    return cleaned
+
+
+def _stage_split(plot_points: list[dict[str, Any]]) -> list[tuple[int, str, str]]:
+    """Return [(size, stage_title, stage_desc), ...] — the same five-stage
+    breakdown used in the original notebook, scaled to the number of plot
+    points produced this run."""
+    total = max(len(plot_points), 5)
+    s1 = max(2, int(total * 0.15))
+    s2 = max(2, int(total * 0.20))
+    s3 = max(4, int(total * 0.25))
+    s4 = max(2, int(total * 0.20))
+    s5 = max(1, total - s1 - s2 - s3 - s4)
+    return [
+        (s1, "Crime Scene Discovery",
+         "Detective arrives at the scene, surveys the body, and notes the first physical clues."),
+        (s2, "The Evidence Trail",
+         "Multi-step investigation of key clues — examine, send to lab, cross-reference registries."),
+        (s3, "Suspects and Misdirection",
+         "Alibi checks for each suspect. Conspirators intervene and redirect suspicion toward the framed suspect."),
+        (s4, "Closing In",
+         "Detective narrows down suspects as evidence increasingly points (misleadingly) toward the framed suspect."),
+        (s5, "Building the False Case",
+         "Detective becomes convinced of the framed suspect's guilt; the final pieces are assembled."),
+    ]
+
+
+def assemble_story(
+    case_file: dict[str, Any],
+    plot_points: list[dict[str, Any]],
+    story_bible: dict[str, Any],
+    out_path: str | Path | None = None,
+) -> str:
+    """Generate a fluent novel-length markdown story from the plot points.
+
+    Ported from the original Colab notebook (cell 8). The five-stage shape is
+    preserved; prompts are rephrased so they work with Qwen's chat template
+    and don't rely on Anthropic-specific formatting.
+    """
+    real = story_bible["real_criminal"]
+    fake = story_bible["fake_suspect"]
+    victim = story_bible["victim_name"]
+    detective = story_bible["detective_name"]
+    partner = story_bible.get("partner_name", "the detective's partner")
+    conspirator_names = story_bible.get("conspirator_names", [])
+    suspect_names = story_bible.get("suspect_names", [])
+    murder_method = story_bible.get("murder_method", "unknown means")
+    motive = case_file.get("criminal", {}).get("motive", "unknown motive")
+
+    plot_points = _clean_plot_points(plot_points, story_bible)
+
+    parts: list[str] = []
+
+    prologue = chat_simple(
+        f"""Write a mystery novel prologue revealing the TRUTH to the reader.
+
+Constraints:
+- Victim: {victim}
+- Real killer: {real}
+- Framed suspect (not the killer): {fake}
+- Conspirators: {conspirator_names}
+- Means: {murder_method}
+
+Show what really happened on the night of the crime, atmospheric third-person prose,
+220-260 words. Do not call it a prologue; open straight into the scene.""",
+        max_tokens=500, temperature=0.75,
+    )
+    parts.append(f"# Prologue\n\n{prologue.strip()}")
+
+    stage_defs = _stage_split(plot_points)
+    idx = 0
+    chapter_num = 1
+    for size, stage_title, stage_desc in stage_defs:
+        stage_points = plot_points[idx : idx + size]
+        idx += size
+        if not stage_points:
+            continue
+        # Two plot points per chapter.
+        chunks = [stage_points[i : i + 2] for i in range(0, len(stage_points), 2)]
+        for chunk in chunks:
+            narratives = "\n\n".join(c["narrative"] for c in chunk)
+            chapter = chat_simple(
+                f"""Write Chapter {chapter_num} of a murder mystery novel.
+
+STRICT RULES:
+- The case is ONLY about the murder of: {victim}
+- Detective: {detective} + partner {partner}
+- Framed suspect being investigated: {fake}
+- Real killer (do NOT reveal, do NOT arrest in this chapter): {real}
+- Conspirator names (exact): {conspirator_names}
+- Murder method: {murder_method}
+- FORBIDDEN: hospitals, psychiatric wards, new crimes, new victims, unrelated plots.
+- The detective must NOT solve the case or arrest anyone in this chapter.
+
+Stage goal: {stage_desc}
+
+Weave these two scenes together as one continuous chapter:
+
+{narratives}
+
+300-400 words. Literary prose with dialogue.""",
+                max_tokens=650, temperature=0.8,
+            )
+            parts.append(f"# Chapter {chapter_num}: {stage_title}\n\n{chapter.strip()}")
+            print(f"  Chapter {chapter_num} ({stage_title}) done")
+            chapter_num += 1
+
+    resolution = chat_simple(
+        f"""Write a "Resolution" chapter for this murder mystery.
+
+Setup:
+- Victim: {victim}
+- Detective: {detective}
+- Detective WRONGLY arrests: {fake}
+- Real killer is NOT caught: {real}
+- Conspirator names: {conspirator_names}
+- Suspect names: {suspect_names}
+- Murder method: {murder_method}
+
+Structure these four beats clearly:
+
+1. EVIDENCE REVIEW — detective lays out the case against {fake} using concrete items.
+2. ALIBI ELIMINATION — rule out each of these suspects by name and reason: {suspect_names}.
+3. RECONSTRUCTION — "Here is what I believe happened that night..." walking step
+   by step through a plausible (but wrong) sequence. Confident tone.
+4. ARREST — detective confronts {fake}, who protests innocence. {real} watches
+   from nearby, expression carefully composed.
+
+450-520 words. Dramatic, confident tone.""",
+        max_tokens=950, temperature=0.75,
+    )
+    parts.append(f"# The Resolution\n\n{resolution.strip()}")
+    print("  Resolution chapter done")
+
+    epilogue = chat_simple(
+        f"""Write the epilogue for this murder mystery novel.
+
+Constraints:
+- Real killer: {real}
+- Wrongly arrested: {fake}
+- Victim: {victim}
+- Conspirators: {conspirator_names}
+- Motive: {motive}
+- Means: {murder_method}
+
+Four beats:
+1. WRONG ARREST COMPLETE — {fake} is led away. Detective {detective} senses a
+   small detail is off but dismisses it; the case is officially closed.
+2. REAL KILLER'S HIDDEN CONFESSION — {real} mentally replays the truth, every
+   gap filled: exact method, timing, disposal of evidence, role of each
+   conspirator, and the motive ({motive}).
+3. CONSPIRATORS' ROLES FULLY REVEALED (still in {real}'s thoughts).
+4. THE LOOSE END — a minor character noticed something. They are too frightened
+   to act tonight, but the truth has not been buried. End with a haunting
+   one-line image.
+
+320-360 words. Bittersweet, atmospheric tone.""",
+        max_tokens=700, temperature=0.75,
+    )
+    parts.append(f"# Epilogue\n\n{epilogue.strip()}")
+    print("  Epilogue done")
+
+    story = "\n\n---\n\n".join(parts)
+    if out_path:
+        out = Path(out_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(story, encoding="utf-8")
+        print(f"\nStory saved -> {out}  ({chapter_num - 1} chapters + Resolution + Epilogue)")
+    return story
+
+
+# ---------------------------------------------------------------------------
 # Top-level driver
 # ---------------------------------------------------------------------------
 def generate_full_story(
@@ -409,8 +625,32 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--prompt", default="A poisoning murder at a prestigious 1920s London art gallery opening")
-    parser.add_argument("--out-dir", default="data")
-    parser.add_argument("--min-points", type=int, default=20)
+    sub = parser.add_subparsers(dest="cmd")
+
+    gen = sub.add_parser("generate", help="Run Phase I from scratch")
+    gen.add_argument("--prompt", default="A poisoning murder at a prestigious 1920s London art gallery opening")
+    gen.add_argument("--out-dir", default="data")
+    gen.add_argument("--min-points", type=int, default=20)
+
+    asm = sub.add_parser("assemble", help="Assemble a markdown novel from an existing plot_points.json")
+    asm.add_argument("--data-dir", default="data")
+    asm.add_argument("--out", default="data/final_story.md")
+
+    # Backward-compat: if no subcommand, default to generate with the given flags.
+    parser.add_argument("--prompt", default=None)
+    parser.add_argument("--out-dir", default=None)
+    parser.add_argument("--min-points", type=int, default=None)
+
     args = parser.parse_args()
-    generate_full_story(args.prompt, args.out_dir, args.min_points)
+    if args.cmd == "assemble":
+        data_dir = Path(args.data_dir)
+        case_file = load_checkpoint(data_dir / "case_file.json")
+        plot_points = load_checkpoint(data_dir / "plot_points.json")
+        story_bible = load_checkpoint(data_dir / "story_bible.json")
+        assemble_story(case_file, plot_points, story_bible, out_path=args.out)
+    else:
+        generate_full_story(
+            args.prompt or "A poisoning murder at a prestigious 1920s London art gallery opening",
+            args.out_dir or "data",
+            args.min_points or 20,
+        )

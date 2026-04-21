@@ -186,18 +186,64 @@ def _conditions_match(effect: Effect, precondition: Condition) -> bool:
 def derive_causal_links(events: list[Event]) -> list[CausalLink]:
     """Walk events in order; for each consumer precondition, find the nearest
     prior event whose effect establishes it. That pair becomes a causal link.
+
+    We augment the strict effect↔precondition match with two heuristics so the
+    plan isn't left link-less when the LLM's surface form drifts:
+
+    1. **Reveal → reference**: if event E_i reveals evidence.X and a later
+       event E_j references evidence.X (in args or reveals), add a link
+       `(E_i, evidence.X.discovered == True, E_j)`. The evidence must stay
+       discovered across the span — it being destroyed breaks the link.
+    2. **Evidence analyzed → referenced**: if event E_i has an effect setting
+       evidence.X.analyzed=true and a later event references X, add a link
+       `(E_i, evidence.X.analyzed == True, E_j)`.
     """
     links: list[CausalLink] = []
+    seen: set[tuple[str, str, str]] = set()  # (producer, consumer, attr) dedupe key
+
+    def _add(producer: str, consumer: str, condition: Condition) -> None:
+        key = (producer, consumer, f"{condition.subject}:{condition.attr}:{condition.value}")
+        if key in seen:
+            return
+        seen.add(key)
+        links.append(CausalLink(producer=producer, condition=condition, consumer=consumer))
+
+    # Pass 1: strict effect↔precondition match.
     for j, consumer in enumerate(events):
         for pc in consumer.preconditions:
-            producer_id: str | None = None
             for i in range(j - 1, -1, -1):
                 producer = events[i]
                 if any(_conditions_match(ef, pc) for ef in producer.effects):
-                    producer_id = producer.id
+                    _add(producer.id, consumer.id, pc)
                     break
-            if producer_id is not None:
-                links.append(CausalLink(producer=producer_id, condition=pc, consumer=consumer.id))
+
+    # Pass 2: reveal → reference heuristic.
+    def _refs_to_evidence(ev: Event) -> set[str]:
+        refs: set[str] = set(ev.reveals)
+        for a in ev.args:
+            if isinstance(a, str) and a.startswith("evidence."):
+                refs.add(a)
+        return refs
+
+    for i, producer in enumerate(events):
+        for ev_id in producer.reveals:
+            if not ev_id.startswith("evidence."):
+                continue
+            # Consumer = next event that also references this evidence id.
+            for j in range(i + 1, len(events)):
+                if ev_id in _refs_to_evidence(events[j]):
+                    _add(producer.id, events[j].id,
+                         Condition(ev_id, "discovered", "==", True))
+
+    # Pass 3: analyzed → reference.
+    for i, producer in enumerate(events):
+        for ef in producer.effects:
+            if ef.subject.startswith("evidence.") and ef.attr == "analyzed" and ef.op == "set" and ef.value is True:
+                for j in range(i + 1, len(events)):
+                    if ef.subject in _refs_to_evidence(events[j]):
+                        _add(producer.id, events[j].id,
+                             Condition(ef.subject, "analyzed", "==", True))
+
     return links
 
 

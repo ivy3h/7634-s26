@@ -80,7 +80,7 @@ class GameEngine:
         loc = self.world.locations.get(loc_id)
         if loc is None:
             return f"[The detective stands in an unmapped place: {loc_id}.]"
-        parts = [f"— {loc.name} —", loc.description]
+        parts = [f"-- {loc.name} --", loc.description]
         if loc.adjacent:
             adj_names = ", ".join(self.world.locations[a].name for a in sorted(loc.adjacent) if a in self.world.locations)
             parts.append(f"Exits: {adj_names}")
