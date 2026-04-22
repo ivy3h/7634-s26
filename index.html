@@ -483,7 +483,9 @@ function buildHintCommands() {
       } else if (tgt.startsWith("object.")) {
         tgt = tgt.split(".", 2)[1].replace(/_/g, " ");
       } else {
-        tgt = String(tgt).toLowerCase().replace(/[^\w\s]/g, "").split(/\s+/).slice(0, 3).join(" ");
+        // Free-text arg: snake_case -> human phrase for both display + command.
+        tgt = String(tgt).replace(/_/g, " ").trim();
+        tgt = tgt.toLowerCase().replace(/[^\w\s]/g, "").split(/\s+/).slice(0, 4).join(" ");
       }
       const verbNorm = ev.verb === "investigate" ? "search" : ev.verb;
       hints.push(`${verbNorm} ${tgt}`.trim());
