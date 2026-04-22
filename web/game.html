@@ -1079,10 +1079,25 @@ document.getElementById("hints-toggle").addEventListener("click", () => {
 });
 
 function greet() {
-  addLog("The Hartley Affair — " + DATA.detective_name + " begins the investigation.", "system");
+  addLog("CASE: The Hartley Affair", "system");
+  addLog(
+    "You are " + DATA.detective_name + " of Scotland Yard. It is past midnight. " +
+    "Tonight, the host of a private gallery reception — " + DATA.victim_name + " — " +
+    "collapsed in his own home during the opening toast. The attending physician called it heart failure; " +
+    "you are unconvinced. A constable has just opened the door for you, and the body lies where it fell.",
+    "narration",
+    "— the call that brought you here —"
+  );
   const loc = currentLoc();
-  addLog(loc.description, "outcome");
-  addLog("Type commands below. Start with 'look' to see who's here, then examine, question, analyze, or move around. When you think you know the poisoner, type 'accuse <name>'.", "system");
+  addLog(
+    "You step into " + (loc ? loc.name : "the scene") + ". " + (loc ? loc.description : ""),
+    "outcome"
+  );
+  addLog(
+    "Open-ended investigation. Type any command (≤ 8 words). A good first move is 'examine body'. " +
+    "You can move with 'go to <place>', 'question <name>', 'analyze <object>'. When you know the poisoner, 'accuse <name>'.",
+    "system"
+  );
 }
 
 renderSidebar();
