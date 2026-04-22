@@ -1263,7 +1263,35 @@ function handleAccuse(target) {
     );
     addLog("Case record closed. Press Reset to begin a new investigation.", "system");
   } else {
-    addLog("You accuse " + c.name + " — but the evidence doesn't hold up under scrutiny. A wrongful arrest is a mark on your record, and the real killer may go free. Consider what other leads you haven't chased.", "exception");
+    state.gameOver = true;
+    addLog(
+      "You name " + c.name + " as the poisoner of " + DATA.victim_name + ". " +
+      "The room falls silent. Constable Morris steps forward, handcuffs in hand. " +
+      c.name + " protests — weakly at first, then with escalating desperation — " +
+      "but the chain of evidence you have assembled looks tidy enough on paper, " +
+      "and the magistrate will not ask too many questions tonight. The arrest is " +
+      "done. A reporter from the Daily Chronicle is already scribbling his " +
+      "headline.",
+      "narration",
+      "— A WRONGFUL ARREST —"
+    );
+    addLog(
+      "Somewhere at the edge of the room — by a window, lit gold by the gaslight — " +
+      "another figure watches the proceedings with an expression carefully " +
+      "arranged between sympathy and concern. That figure's fingers brush a ring " +
+      "on their hand for the briefest instant, then release. You do not notice. " +
+      "You are already drafting your report.",
+      "narration",
+      "— the one who walked free —"
+    );
+    addLog(
+      "The Hartley Affair is closed in the ledger of Scotland Yard, but not in " +
+      "the city that reads about it tomorrow. Somewhere, the truth drifts up " +
+      "the Thames with the morning fog — thin, persistent, and, for now, unheard.",
+      "narration",
+      "— coda —"
+    );
+    addLog("A wrongful arrest has ended the case. Press Reset to try again.", "system");
   }
 }
 
