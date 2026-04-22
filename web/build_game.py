@@ -670,24 +670,53 @@ function buildHintCommands() {
     const localEvents = Object.values(DATA.events).filter(
       ev => ev.location === state.location && !state.executedEvents.includes(ev.id)
     );
-    for (const ev of localEvents) {
-      const firstArg = (ev.args || []).find(a => !String(a).startsWith("location."));
-      let tgt = firstArg ? String(firstArg) : "";
-      let argIsCharacter = false;
-      if (tgt.startsWith("character.")) {
-        argIsCharacter = true;
-        const c = DATA.characters[tgt];
-        tgt = c ? firstAlias(c) : tgt.split(".", 2)[1].replace(/_/g, " ");
-      } else if (tgt.startsWith("evidence.")) {
-        const e = DATA.evidence[tgt];
-        tgt = e ? firstAlias(e) : tgt.split(".", 2)[1];
-      } else if (tgt.startsWith("object.")) {
-        tgt = tgt.split(".", 2)[1].replace(/_/g, " ");
-      } else {
-        // Free-text arg: snake_case -> human phrase for both display + command.
-        tgt = String(tgt).replace(/_/g, " ").trim();
-        tgt = tgt.toLowerCase().replace(/[^\w\s]/g, "").split(/\s+/).slice(0, 4).join(" ");
+    // Count how many local events share the same first non-location arg —
+    // if > 1, we need to include a distinguishing second arg in the chip
+    // so the command scores onto a single event instead of ping-ponging
+    // between them.
+    const firstArgOf = ev => (ev.args || []).find(a => !String(a).startsWith("location."));
+    const firstArgCount = {};
+    localEvents.forEach(ev => {
+      const fa = firstArgOf(ev);
+      if (fa) firstArgCount[fa] = (firstArgCount[fa] || 0) + 1;
+    });
+
+    const prettyArg = raw => {
+      const s = String(raw);
+      if (s.startsWith("character.")) {
+        const c = DATA.characters[s];
+        return c ? firstAlias(c) : s.split(".", 2)[1].replace(/_/g, " ");
       }
+      if (s.startsWith("evidence.")) {
+        const e = DATA.evidence[s];
+        return e ? firstAlias(e) : s.split(".", 2)[1];
+      }
+      if (s.startsWith("object.")) {
+        return s.split(".", 2)[1].replace(/_/g, " ");
+      }
+      return s.replace(/_/g, " ").trim().toLowerCase()
+              .replace(/[^\w\s]/g, "").split(/\s+/).slice(0, 4).join(" ");
+    };
+
+    for (const ev of localEvents) {
+      const firstArg = firstArgOf(ev);
+      let argIsCharacter = String(firstArg || "").startsWith("character.");
+      let tgt = prettyArg(firstArg);
+
+      // If another local event uses the exact same first arg, append one
+      // unique extra arg to both the display text and the pre-filled command.
+      if (firstArg && firstArgCount[firstArg] > 1) {
+        const othersArgs = new Set();
+        localEvents.forEach(ev2 => {
+          if (ev2.id === ev.id) return;
+          (ev2.args || []).forEach(a => othersArgs.add(String(a)));
+        });
+        const disambig = (ev.args || []).find(a =>
+          !String(a).startsWith("location.") && a !== firstArg && !othersArgs.has(a)
+        );
+        if (disambig) tgt = tgt + " " + prettyArg(disambig);
+      }
+
       // Normalize a few plan verbs so the chip routes to a working handler.
       let verbNorm = ev.verb;
       if (verbNorm === "investigate") verbNorm = "search";
