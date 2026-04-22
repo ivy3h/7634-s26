@@ -245,6 +245,24 @@ aside .exit-btn:hover { background: rgba(179,138,74,0.12); border-style: solid; 
   background: var(--bg);
   overflow: hidden;
 }
+.scene-banner {
+  padding: 18px 34px 14px;
+  border-bottom: 1px solid var(--rule);
+  background: linear-gradient(180deg, #1a140f 0%, var(--panel2) 100%);
+}
+.scene-banner .scene-name {
+  font-family: "Playfair Display", "Didot", Georgia, serif;
+  font-size: 22px;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+}
+.scene-banner .scene-desc {
+  font-size: 14.5px;
+  color: var(--accent-soft);
+  font-style: italic;
+  line-height: 1.5;
+}
 .log {
   flex: 1 1 auto;
   min-height: 0;
@@ -440,9 +458,6 @@ aside .exit-btn:hover { background: rgba(179,138,74,0.12); border-style: solid; 
 
 <div class="layout">
   <aside class="left">
-    <h3>Current scene</h3>
-    <div id="location-name" style="font-weight:600; font-size:15px; color: var(--accent);"></div>
-    <div id="location-desc" class="muted" style="margin: 4px 0 8px;"></div>
     <h3>Exits</h3>
     <div id="exits"></div>
     <h3>People here</h3>
@@ -452,6 +467,10 @@ aside .exit-btn:hover { background: rgba(179,138,74,0.12); border-style: solid; 
   </aside>
 
   <div class="center">
+    <div class="scene-banner">
+      <div id="location-name" class="scene-name"></div>
+      <div id="location-desc" class="scene-desc"></div>
+    </div>
     <div id="log" class="log"></div>
     <div class="hints-panel">
       <button id="hints-toggle" class="hints-toggle" type="button">💡 Stuck? Show hints</button>
