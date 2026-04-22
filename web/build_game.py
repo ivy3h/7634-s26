@@ -849,6 +849,19 @@ function renderHints() {
     list.appendChild(m);
     return;
   }
+  // All plan events triggered — the investigation phase is done. Nudge
+  // toward an accusation instead of looping on 'look'.
+  const pendingCount = Object.values(DATA.events).filter(
+    ev => !state.executedEvents.includes(ev.id)
+  ).length;
+  if (pendingCount === 0) {
+    const m = document.createElement("div");
+    m.className = "hints-note";
+    m.style.color = "var(--accent-soft)";
+    m.innerHTML = "All leads exhausted. Review your notebook, then type <code>accuse &lt;suspect&gt;</code> to close the case.";
+    list.appendChild(m);
+    return;
+  }
   const hints = buildHintCommands();
   hints.forEach(cmd => {
     const chip = document.createElement("button");
@@ -1183,6 +1196,18 @@ function executeEvent(ev) {
   const cleanNarrative = (ev.narrative || "").replace(/^(?:#+[^\n]*\n\s*)+/, "").trim();
   addLog(cleanNarrative, "narration", "— " + ev.description + " —");
   addLog("Your case grows clearer. (" + state.executedEvents.length + " / " + DATA.goal_events_needed + " plot events explored.)", "system");
+  // Final-event nudge, once.
+  const pendingCountAfter = Object.values(DATA.events).filter(
+    ev2 => !state.executedEvents.includes(ev2.id)
+  ).length;
+  if (pendingCountAfter === 0 && !state.allDoneAnnounced) {
+    state.allDoneAnnounced = true;
+    addLog(
+      "Every trail you could follow has been followed. Every interview logged, every record pulled, every room canvassed. Your notebook is full. It is time to name the poisoner — type 'accuse <suspect>'.",
+      "narration",
+      "— the case, fully explored —"
+    );
+  }
 }
 
 function handleMove(target) {
