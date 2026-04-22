@@ -99,6 +99,46 @@ def build_game_data() -> dict:
                 "aliases": _id_aliases(subj, name),
             }
 
+    # Ensure the real criminal is present as a selectable suspect even if
+    # plan.initial_state didn't surface them as a distinct character.
+    crim_name = case.get("criminal", {}).get("name", "")
+    crim_id = "character." + re.sub(r"\W+", "_", crim_name.lower()).strip("_") if crim_name else ""
+    if crim_id and crim_id not in characters:
+        characters[crim_id] = {
+            "id": crim_id,
+            "name": crim_name,
+            "role": "associate",   # neutral, not 'criminal' -- don't spoil
+            "alive": True,
+            "aliases": _id_aliases(crim_id, crim_name),
+        }
+
+    # Build per-character blurbs from case_file. Suspects are red herrings,
+    # so their motives + alibis are safe to share. Conspirators' "role" is a
+    # plot spoiler (it describes their complicity), so we expose only the
+    # claimed alibi. The real criminal gets a neutral 'access/opportunity'
+    # line that doesn't reveal their guilt.
+    blurbs: dict[str, str] = {}
+    for s in case.get("suspects", []):
+        cid = "character." + re.sub(r"\W+", "_", s["name"].lower()).strip("_")
+        parts = []
+        if s.get("motive"):
+            parts.append("Apparent motive — " + s["motive"])
+        if s.get("alibi"):
+            parts.append("Claimed alibi — " + s["alibi"])
+        if parts:
+            blurbs[cid] = "  ".join(parts)
+    for s in case.get("conspirators", []):
+        cid = "character." + re.sub(r"\W+", "_", s["name"].lower()).strip("_")
+        if s.get("alibi"):
+            blurbs[cid] = "Claimed alibi — " + s["alibi"]
+    if crim_id:
+        crim = case.get("criminal", {})
+        opportunity = crim.get("opportunity", "")
+        blurbs[crim_id] = ("Access — " + opportunity) if opportunity else "A close associate of the victim."
+
+    for cid, ch in characters.items():
+        ch["blurb"] = blurbs.get(cid, "")
+
     evidence_entities: dict[str, dict] = {}
     for subj, fields in plan["initial_state"].items():
         if subj.startswith("evidence."):
@@ -423,6 +463,37 @@ aside .exit-btn:hover { background: rgba(179,138,74,0.12); border-style: solid; 
   letter-spacing: 0.04em;
 }
 
+.suspect-locked {
+  color: var(--muted); font-style: italic; font-size: 13px; padding: 3px 0;
+}
+.suspect-row { padding: 2px 0; }
+.suspect-row .suspect-name {
+  background: transparent;
+  color: var(--paper);
+  border: none;
+  padding: 2px 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  display: block;
+  width: 100%;
+}
+.suspect-row .suspect-name:hover { color: var(--accent-soft); }
+.suspect-row .suspect-name .chev {
+  display: inline-block; width: 14px; color: var(--accent); font-size: 11px;
+}
+.suspect-row .blurb {
+  margin: 4px 0 8px 14px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--paper);
+  border-left: 2px solid var(--accent);
+  background: rgba(179,138,74,0.06);
+  line-height: 1.5;
+}
+
 .knowledge li { position: relative; padding-left: 14px; }
 .knowledge li::before { content: "●"; position: absolute; left: 0; color: var(--accent); font-size: 12px; top: 4px; }
 .progress-bar {
@@ -524,10 +595,18 @@ function freshState() {
     executedEvents: [],
     evidenceFlags: {}, // id -> {discovered, analyzed, destroyed}
     charactersInterviewed: [],
+    encounteredCharacters: [],   // seen in a visited location or referenced by an executed event
     turns: 0,
     gameOver: false,
   };
 }
+function encounter(cid) {
+  if (!cid) return;
+  if (!state.encounteredCharacters.includes(cid)) {
+    state.encounteredCharacters.push(cid);
+  }
+}
+function encounterAll(ids) { (ids || []).forEach(encounter); }
 function loadState() {
   try {
     const s = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -747,13 +826,7 @@ function renderSidebar() {
     });
   }
 
-  const susEl = document.getElementById("suspects");
-  susEl.innerHTML = "";
-  Object.values(DATA.characters).filter(c => c.role === "suspect" || c.role === "conspirator").forEach(c => {
-    const li = document.createElement("li");
-    li.textContent = c.name + (c.role ? " — " + c.role : "");
-    susEl.appendChild(li);
-  });
+  renderSuspectList();
 
   document.getElementById("events-triggered").textContent = state.executedEvents.length;
   document.getElementById("events-needed").textContent = DATA.goal_events_needed;
@@ -762,6 +835,53 @@ function renderSidebar() {
 }
 
 function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+
+function renderSuspectList() {
+  const susEl = document.getElementById("suspects");
+  susEl.innerHTML = "";
+  const candidates = Object.values(DATA.characters)
+    .filter(c => c.alive && (c.role === "suspect" || c.role === "conspirator" || c.role === "associate"));
+  const anyEncountered = candidates.some(c => state.encounteredCharacters.includes(c.id));
+  if (!anyEncountered) {
+    const li = document.createElement("li");
+    li.className = "muted";
+    li.style.fontStyle = "italic";
+    li.textContent = "(no suspects known yet — investigate locations to uncover them)";
+    susEl.appendChild(li);
+    return;
+  }
+  candidates.forEach(c => {
+    const li = document.createElement("li");
+    if (!state.encounteredCharacters.includes(c.id)) {
+      li.className = "suspect-locked";
+      li.textContent = "? unidentified associate";
+      susEl.appendChild(li);
+      return;
+    }
+    li.className = "suspect-row";
+    const btn = document.createElement("button");
+    btn.className = "suspect-name";
+    btn.type = "button";
+    btn.innerHTML = '<span class="chev">▸</span>' + c.name;
+    btn.addEventListener("click", () => toggleSuspectBlurb(li, btn, c));
+    li.appendChild(btn);
+    susEl.appendChild(li);
+  });
+}
+
+function toggleSuspectBlurb(container, btn, c) {
+  const existing = container.querySelector(".blurb");
+  if (existing) {
+    existing.remove();
+    btn.querySelector(".chev").textContent = "▸";
+    return;
+  }
+  const d = document.createElement("div");
+  d.className = "blurb";
+  d.textContent = c.blurb || "No notes yet.";
+  container.appendChild(d);
+  btn.querySelector(".chev").textContent = "▾";
+}
 
 // -------------------- command parsing --------------------
 function interpret(raw) {
@@ -881,6 +1001,8 @@ function eventAtHereMatching(verb, target) {
 
 function executeEvent(ev) {
   state.executedEvents.push(ev.id);
+  // Encounter any characters referenced in this event's args.
+  (ev.args || []).forEach(a => { if (String(a).startsWith("character.")) encounter(String(a)); });
   // Apply reveals: mark evidence discovered
   (ev.reveals || []).forEach(eid => {
     if (!state.evidenceFlags[eid]) state.evidenceFlags[eid] = {};
@@ -922,6 +1044,7 @@ function handleMove(target) {
   }
   state.lastLocation = state.location;
   state.location = loc.id;
+  encounterAll(loc.characters);
   addLog("You make your way to " + loc.name + ".", "system");
   addLog(loc.description, "outcome");
 }
