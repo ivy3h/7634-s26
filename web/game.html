@@ -495,15 +495,26 @@ function buildHintCommands() {
     }
   }
 
-  // B. Characters still here that haven't been interviewed.
+  // B. Characters still here that haven't been interviewed AND still have
+  //    a remaining social event tied to them at this location. Avoid
+  //    suggesting "dead" hints that would just print the generic polite
+  //    fall-through.
   if (loc) {
+    const socialFamily = new Set(["interview","question","consult","confront","visit"]);
     for (const cid of loc.characters) {
       const c = DATA.characters[cid];
       if (!c || !c.alive) continue;
       if (state.charactersInterviewed.includes(cid)) continue;
       const alias = firstAlias(c);
       const already = hints.some(h => h.toLowerCase().includes(alias));
-      if (!already && hints.length < 4) {
+      if (already || hints.length >= 4) continue;
+      const hasPendingSocialEvent = Object.values(DATA.events).some(ev =>
+        ev.location === state.location
+        && !state.executedEvents.includes(ev.id)
+        && socialFamily.has(ev.verb)
+        && (ev.args || []).some(a => String(a).toLowerCase().includes(alias))
+      );
+      if (hasPendingSocialEvent) {
         hints.push("question " + alias);
       }
     }
@@ -862,7 +873,9 @@ function executeEvent(ev) {
       }
     });
   }
-  if (ev.verb === "interview" || ev.verb === "consult" || ev.verb === "visit") {
+  // Any social-verb event on a named character counts as "interviewed"
+  // so the hint engine stops nagging us to speak with them again.
+  if (socialVerbs.has(ev.verb)) {
     (ev.args || []).forEach(a => {
       if (String(a).startsWith("character.")) {
         if (!state.charactersInterviewed.includes(a)) state.charactersInterviewed.push(a);
@@ -937,6 +950,9 @@ function handleInterview(target) {
     addLog(c.name + " isn't here. You'll need to find them first.", "outcome");
     return;
   }
+  // Nothing plan-relevant left to extract from this character at this
+  // location. Mark them "interviewed" so the hint engine stops looping.
+  if (!state.charactersInterviewed.includes(c.id)) state.charactersInterviewed.push(c.id);
   addLog(c.name + " answers politely but says nothing that moves the case forward here.", "outcome");
 }
 
