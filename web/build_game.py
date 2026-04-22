@@ -250,7 +250,10 @@ aside {
   border-color: var(--rule);
 }
 aside.left  { border-right: 1px solid var(--rule); }
-aside.right { border-left:  1px solid var(--rule); }
+aside.right {
+  border-left: 1px solid var(--rule);
+  overflow: hidden;   /* right column is locked; each section scrolls internally */
+}
 aside h3 {
   font-family: "Playfair Display", Georgia, serif;
   font-size: 13px;
