@@ -8,3 +8,9 @@ env_setup.log
 .DS_Store
 .vscode/
 slides/
+
+# secrets — never commit these
+.env
+*.key
+*_api_key*
+anthropic_key*
