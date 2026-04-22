@@ -491,6 +491,20 @@ aside.left .scene-desc {
   line-height: 1.5;
 }
 
+.knowledge {
+  max-height: 38vh;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-right: -4px;
+  /* subtle scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
+}
+.knowledge::-webkit-scrollbar { width: 6px; }
+.knowledge::-webkit-scrollbar-track { background: transparent; }
+.knowledge::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+.knowledge::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
 .knowledge li { position: relative; padding-left: 14px; }
 .knowledge li::before { content: "●"; position: absolute; left: 0; color: var(--accent); font-size: 12px; top: 4px; }
 .progress-bar {
