@@ -1144,6 +1144,21 @@ function note(entry) {
 
 function executeEvent(ev) {
   state.executedEvents.push(ev.id);
+
+  // Encounter any character whose name appears in this event's prose —
+  // some conspirators only surface in narrative text (not in structured
+  // args), so we scan description + narrative too.
+  const eventText = ((ev.narrative || "") + " " + (ev.description || "")).toLowerCase();
+  for (const cid of Object.keys(DATA.characters)) {
+    if (state.encounteredCharacters.includes(cid)) continue;
+    const c = DATA.characters[cid];
+    if (!c || !c.alive) continue;
+    const needles = [c.name.toLowerCase()].concat(
+      (c.aliases || []).filter(a => a.length > 3 && !/^\d+$/.test(a))
+    );
+    if (needles.some(k => k && eventText.includes(k))) encounter(cid);
+  }
+
   const socialVerbs = new Set(["interview","consult","confront","question","visit"]);
   (ev.args || []).forEach(a => {
     const asStr = String(a);
