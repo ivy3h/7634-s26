@@ -568,33 +568,77 @@ function buildHintCommands() {
     }
   }
 
-  // C. Exit suggestions, ranked by how much investigation work is waiting
-  //    for the detective there. Skip the location we just came from so
-  //    hints don't send you in loops.
+  // C. Exit suggestions, depth-aware.
+  //    - 'immediate' = pending events at that neighbor
+  //    - 'within'    = pending events reachable within 3 more hops
+  //    Rank by immediate * 10 + within. Exclude the location we came from.
   function eventsWaitingAt(locId) {
     return Object.values(DATA.events).filter(
       ev => ev.location === locId && !state.executedEvents.includes(ev.id)
     ).length;
   }
+  function pendingReachable(fromId, maxHops) {
+    maxHops = maxHops == null ? 4 : maxHops;
+    const seen = new Set([fromId]);
+    const queue = [[fromId, 0]];
+    let count = 0;
+    let firstHit = null;
+    while (queue.length) {
+      const [cur, d] = queue.shift();
+      if (d > 0) {
+        const hasPending = Object.values(DATA.events).some(
+          ev => ev.location === cur && !state.executedEvents.includes(ev.id)
+        );
+        if (hasPending) {
+          count++;
+          if (firstHit === null) firstHit = cur;
+        }
+      }
+      if (d >= maxHops) continue;
+      const loc2 = DATA.locations[cur];
+      if (!loc2) continue;
+      for (const adj of loc2.adjacent) {
+        if (!seen.has(adj)) {
+          seen.add(adj);
+          queue.push([adj, d + 1]);
+        }
+      }
+    }
+    return { count: count, firstHit: firstHit };
+  }
   if (loc && loc.adjacent.length && hints.length < 4) {
     const ranked = loc.adjacent
       .filter(id => id !== state.lastLocation)
-      .map(id => ({id, score: eventsWaitingAt(id), loc: DATA.locations[id]}))
-      .filter(x => x.loc)
-      .sort((a, b) => b.score - a.score);
-    // Offer at most two exits, prefer ones with work to do.
+      .map(id => ({
+        id: id,
+        immediate: eventsWaitingAt(id),
+        within: pendingReachable(id, 3).count,
+        loc: DATA.locations[id],
+      }))
+      .filter(x => x.loc && (x.immediate > 0 || x.within > 0))
+      .sort((a, b) => (b.immediate * 10 + b.within) - (a.immediate * 10 + a.within));
     for (const x of ranked.slice(0, 2)) {
       if (hints.length >= 4) break;
       hints.push("go to " + locAlias(x.loc));
     }
-    // If we filtered out everything (only neighbor was lastLocation), allow it back.
-    if (hints.length === 0) {
-      const fallback = loc.adjacent.map(id => DATA.locations[id]).filter(Boolean)[0];
-      if (fallback) hints.push("go to " + locAlias(fallback));
+  }
+
+  // D. Long-range nudge. If the current location has nothing left and the
+  //    immediate exits are dry too, BFS out to the nearest pending event
+  //    and surface a direct "go to <that place>" hint so the player knows
+  //    where the remaining work actually lives.
+  if (hints.length < 2) {
+    const reach = pendingReachable(state.location, 8);
+    if (reach.firstHit && reach.firstHit !== state.location) {
+      const targetLoc = DATA.locations[reach.firstHit];
+      if (targetLoc) {
+        const cmd = "go to " + locAlias(targetLoc);
+        if (!hints.includes(cmd)) hints.push(cmd);
+      }
     }
   }
 
-  // D. Fallback baseline.
+  // E. Fallback baseline.
   if (hints.length === 0) {
     hints.push("look");
   }
