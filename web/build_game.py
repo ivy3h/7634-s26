@@ -819,8 +819,15 @@ function renderSidebar() {
       if (!e) return;
       const li = document.createElement("li");
       const flag = state.evidenceFlags[eid] || {};
-      li.textContent = (flag.discovered ? "☑ " : "☐ ") + truncate(e.description, 40);
-      if (flag.destroyed) li.style.textDecoration = "line-through";
+      if (flag.discovered) {
+        li.textContent = "☑ " + truncate(e.description, 40);
+        if (flag.destroyed) li.style.textDecoration = "line-through";
+      } else {
+        // Don't spoil what it is — just hint there's something to investigate.
+        li.textContent = "? something catches the eye";
+        li.className = "muted";
+        li.style.fontStyle = "italic";
+      }
       evEl.appendChild(li);
     });
   }
