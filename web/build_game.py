@@ -732,7 +732,10 @@ function buildHintCommands() {
       let verbNorm = ev.verb;
       if (verbNorm === "investigate") verbNorm = "search";
       if (verbNorm === "visit" && argIsCharacter) verbNorm = "question";
-      hints.push(`${verbNorm} ${tgt}`.trim());
+      // Hard cap: keep chips at most 6 words so they fit cleanly in the
+      // panel and still fit under the parser's 8-word command ceiling.
+      const finalHint = `${verbNorm} ${tgt}`.trim().split(/\s+/).slice(0, 6).join(" ");
+      hints.push(finalHint);
       if (hints.length >= 3) break;
     }
   }
