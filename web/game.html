@@ -307,19 +307,20 @@ aside.left .scene-desc {
   line-height: 1.5;
 }
 
-.knowledge {
-  max-height: 38vh;
+.scroll-list {
   overflow-y: auto;
   padding-right: 4px;
   margin-right: -4px;
-  /* subtle scrollbar */
   scrollbar-width: thin;
   scrollbar-color: var(--rule) transparent;
 }
-.knowledge::-webkit-scrollbar { width: 6px; }
-.knowledge::-webkit-scrollbar-track { background: transparent; }
-.knowledge::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
-.knowledge::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+.scroll-list::-webkit-scrollbar { width: 6px; }
+.scroll-list::-webkit-scrollbar-track { background: transparent; }
+.scroll-list::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+.scroll-list::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+.knowledge { max-height: 28vh; }
+#suspects  { max-height: 22vh; }
 
 .knowledge li { position: relative; padding-left: 14px; }
 .knowledge li::before { content: "●"; position: absolute; left: 0; color: var(--accent); font-size: 12px; top: 4px; }
@@ -387,9 +388,9 @@ aside.left .scene-desc {
 
   <aside class="right">
     <h3>Detective's notebook</h3>
-    <ul id="knowledge" class="knowledge"></ul>
+    <ul id="knowledge" class="knowledge scroll-list"></ul>
     <h3>Suspects</h3>
-    <ul id="suspects"></ul>
+    <ul id="suspects" class="scroll-list"></ul>
     <h3>Progress</h3>
     <div class="muted" style="font-size:12px;">
       <span id="events-triggered">0</span> / <span id="events-needed">0</span> plot events explored.
