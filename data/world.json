@@ -268,14 +268,6 @@
       ],
       "characters": [],
       "evidence": []
-    },
-    "location.scotland_yard_entrance": {
-      "id": "location.scotland_yard_entrance",
-      "name": "Scotland Yard Entrance",
-      "description": "The main entrance and reception area of Scotland Yard headquarters",
-      "adjacent": [],
-      "characters": [],
-      "evidence": []
     }
   },
   "starting_location": "location.study"

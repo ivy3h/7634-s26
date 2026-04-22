@@ -175,7 +175,7 @@ def build_game_data() -> dict:
         "characters": characters,
         "evidence": evidence_entities,
         "locations": locations,
-        "goal_events_needed": 4,
+        "goal_events_needed": 10,
     }
 
 
