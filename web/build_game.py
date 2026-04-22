@@ -704,18 +704,23 @@ function buildHintCommands() {
       let argIsCharacter = String(firstArg || "").startsWith("character.");
       let tgt = prettyArg(firstArg);
 
-      // If another local event uses the exact same first arg, append one
-      // unique extra arg to both the display text and the pre-filled command.
-      if (firstArg && firstArgCount[firstArg] > 1) {
+      // Always try to append one more distinctive arg so each hint chip
+      // stays stable even after a sibling event finishes (prevents the
+      // "…records" chip from visibly shortening mid-playthrough).
+      if (firstArg) {
         const othersArgs = new Set();
         localEvents.forEach(ev2 => {
           if (ev2.id === ev.id) return;
           (ev2.args || []).forEach(a => othersArgs.add(String(a)));
         });
-        const disambig = (ev.args || []).find(a =>
+        const unique = (ev.args || []).find(a =>
           !String(a).startsWith("location.") && a !== firstArg && !othersArgs.has(a)
         );
-        if (disambig) tgt = tgt + " " + prettyArg(disambig);
+        const anySecond = (ev.args || []).find(a =>
+          !String(a).startsWith("location.") && a !== firstArg
+        );
+        const pick = unique || anySecond;
+        if (pick) tgt = tgt + " " + prettyArg(pick);
       }
 
       // Normalize a few plan verbs so the chip routes to a working handler.
