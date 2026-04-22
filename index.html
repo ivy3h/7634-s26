@@ -802,11 +802,11 @@ function eventAtHereMatching(verb, target) {
 
   // Verb family alignment
   const verbFamily = {
-    "examine": ["examine", "search", "observe", "check", "analyze"],
-    "search":  ["search", "examine", "observe"],
-    "analyze": ["analyze", "examine"],
+    "examine": ["examine", "search", "observe", "check", "analyze", "investigate"],
+    "search":  ["search", "examine", "observe", "investigate"],
+    "analyze": ["analyze", "examine", "investigate"],
     "interview": ["interview", "question", "consult", "confront", "visit"],
-    "visit": ["visit", "interview"],
+    "visit": ["visit", "interview", "investigate"],
   };
   const allowedVerbs = new Set(verbFamily[verb] || [verb]);
 
