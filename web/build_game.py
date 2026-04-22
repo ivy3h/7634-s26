@@ -780,10 +780,8 @@ function buildHintCommands() {
     hints.push("look");
   }
 
-  // E. Endgame nudge.
-  if (state.executedEvents.length >= DATA.goal_events_needed && !state.gameOver) {
-    hints.push("accuse " + firstAlias(DATA.characters[DATA.real_criminal_id] || {name: DATA.real_criminal_name, aliases: [DATA.real_criminal_name.toLowerCase()]}));
-  }
+  // Deliberately no 'accuse X' hint — the detective must choose their own
+  // suspect. Accusation is always available via free text, no hint needed.
 
   // Keep it short.
   return Array.from(new Set(hints)).slice(0, 5);
