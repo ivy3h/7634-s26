@@ -578,8 +578,6 @@ aside.left .scene-desc {
     <h3>Progress</h3>
     <div class="muted" style="font-size:12px;">
       <span id="events-triggered">0</span> / <span id="events-needed">0</span> plot events explored.
-      You can attempt an accusation any time, but your case will only hold if
-      you've uncovered enough evidence.
     </div>
     <div class="progress-bar"><div id="pbar" style="width:0%"></div></div>
   </aside>
