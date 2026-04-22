@@ -158,12 +158,57 @@ aside .exit-btn:hover { background: rgba(179,138,74,0.12); border-style: solid; 
   font-weight: 600;
 }
 
-.input-bar {
-  display: flex; gap: 8px;
-  padding: 14px 20px 16px;
+.suggestions {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 12px 20px 4px;
   border-top: 1px solid var(--rule);
   background: var(--panel2);
 }
+.suggestions button {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 14px;
+  background: var(--panel);
+  color: var(--paper);
+  border: 1px solid var(--rule);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 3px;
+  text-align: left;
+  transition: border-color .12s, background .12s, color .12s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.suggestions button:hover {
+  border-color: var(--accent);
+  background: #241d16;
+}
+.suggestions button.other {
+  flex: 0 0 auto;
+  color: var(--accent-soft);
+  font-style: italic;
+  background: transparent;
+  border-style: dashed;
+}
+.suggestions button.other:hover {
+  color: var(--accent);
+  background: rgba(179,138,74,0.08);
+}
+.suggestions button.accuse {
+  border-color: var(--good);
+  color: var(--good);
+  font-weight: 600;
+}
+.suggestions button.accuse:hover { background: rgba(74,155,93,0.12); }
+
+.input-bar {
+  display: flex; gap: 8px;
+  padding: 8px 20px 16px;
+  background: var(--panel2);
+}
+.input-bar.hidden-free { display: none; }
 .input-bar input {
   flex: 1;
   padding: 10px 14px;
@@ -243,16 +288,18 @@ aside .exit-btn:hover { background: rgba(179,138,74,0.12); border-style: solid; 
 
   <div class="center">
     <div id="log" class="log"></div>
-    <div class="hint" id="hint">
-      Try: <code>look</code>, <code>examine body</code>, <code>go to london streets</code>, <code>question sutherland</code>, <code>analyze ring</code>, <code>accuse vivienne</code>
-    </div>
-    <form class="input-bar" id="input-form">
+    <div class="suggestions" id="suggestions"></div>
+    <form class="input-bar hidden-free" id="input-form">
       <input id="cmd" autocomplete="off" spellcheck="false"
-             placeholder="Type a command (≤ 8 words)"
+             placeholder="Type your own command (≤ 8 words)"
              maxlength="80">
       <button type="submit">Enter</button>
-      <button type="button" id="reset-btn" title="Start over" style="background: var(--panel); color: var(--paper);">Reset</button>
+      <button type="button" id="cancel-free-btn" title="Back to suggestions" style="background: var(--panel); color: var(--paper);">Cancel</button>
     </form>
+    <div class="hint">
+      <span id="hint-text">Pick a suggested move below, or click <b>Other…</b> to type your own command.</span>
+      <button id="reset-btn" title="Start over" style="float:right; margin-top:-3px; background: transparent; color: var(--muted); border: 1px solid var(--rule); padding: 3px 8px; font-size: 11px; cursor: pointer; font-family: inherit;">Reset</button>
+    </div>
   </div>
 
   <aside class="right">
@@ -320,6 +367,174 @@ function addLog(text, cls = "outcome", title = null) {
   div.appendChild(body);
   logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
+}
+
+// -------------------- suggestion engine --------------------
+function firstAlias(entity) {
+  // Prefer a multi-word alias that reads naturally in a command.
+  if (!entity || !entity.aliases || !entity.aliases.length) return "";
+  // Pick the longest alias that isn't just a dotted id.
+  const clean = entity.aliases.filter(a => !a.includes(".") && a.length > 2);
+  clean.sort((a, b) => b.length - a.length);
+  return clean[0] || entity.aliases[0];
+}
+function locAlias(loc) {
+  // "forensic laboratory" is nicer than "location.forensic_laboratory" or just "forensic"
+  if (!loc) return "";
+  return loc.name.toLowerCase();
+}
+function truncLabel(s, n = 34) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+
+function buildSuggestions() {
+  const loc = currentLoc();
+  const suggs = [];
+
+  // A. Any remaining unexecuted plan event at this location suggests itself.
+  if (loc) {
+    const localEvents = Object.values(DATA.events).filter(
+      ev => ev.location === state.location && !state.executedEvents.includes(ev.id)
+    );
+    for (const ev of localEvents.slice(0, 3)) {
+      // Craft a natural-language command from the event's verb + primary arg.
+      const firstArg = (ev.args || []).find(a => !String(a).startsWith("location."));
+      let verb = ev.verb;
+      const verbMap = {
+        "examine": "Examine", "search": "Search", "observe": "Observe",
+        "analyze": "Analyze", "interview": "Question", "consult": "Consult",
+        "visit": "Visit", "confront": "Confront", "investigate": "Investigate",
+      };
+      const verbPretty = verbMap[verb] || (verb[0].toUpperCase() + verb.slice(1));
+      let tgt = firstArg ? String(firstArg) : "";
+      // Nice label: if arg is character.xxx, use the character's name
+      let cmdTarget = tgt;
+      if (tgt.startsWith("character.")) {
+        const c = DATA.characters[tgt];
+        if (c) { tgt = c.name; cmdTarget = firstAlias(c); }
+      } else if (tgt.startsWith("evidence.")) {
+        const e = DATA.evidence[tgt];
+        if (e) { tgt = truncLabel(e.description, 32); cmdTarget = firstAlias(e); }
+      } else if (tgt.startsWith("object.")) {
+        tgt = tgt.split(".", 2)[1].replace(/_/g, " ");
+        cmdTarget = tgt;
+      } else {
+        // Free-text arg; shorten for display
+        tgt = truncLabel(tgt, 32);
+        cmdTarget = tgt.toLowerCase().replace(/[^\w\s]/g, "").split(/\s+/).slice(0, 3).join(" ");
+      }
+      suggs.push({
+        label: `${verbPretty} ${tgt}`,
+        cmd: `${verb} ${cmdTarget}`,
+      });
+      if (suggs.length >= 3) break;
+    }
+  }
+
+  // B. Any character in the room we haven't interviewed yet, if not already offered.
+  if (loc) {
+    for (const cid of loc.characters) {
+      const c = DATA.characters[cid];
+      if (!c || !c.alive) continue;
+      if (state.charactersInterviewed.includes(cid)) continue;
+      const already = suggs.some(s => s.cmd.toLowerCase().includes(firstAlias(c)));
+      if (!already && suggs.length < 3) {
+        suggs.push({ label: "Question " + c.name, cmd: "question " + firstAlias(c) });
+      }
+    }
+  }
+
+  // C. Offer one exit if the local options are scarce.
+  if (loc && loc.adjacent.length && suggs.length < 3) {
+    const firstAdj = DATA.locations[loc.adjacent[0]];
+    if (firstAdj) {
+      suggs.push({ label: "Go to " + firstAdj.name, cmd: "go to " + locAlias(firstAdj) });
+    }
+  }
+
+  // D. Always keep "Look around" accessible if still thin.
+  if (suggs.length === 0) {
+    suggs.push({ label: "Look around", cmd: "look" });
+  }
+
+  // E. If we're ready to wrap it up, foreground an accusation button.
+  if (state.executedEvents.length >= DATA.goal_events_needed && !state.gameOver) {
+    suggs.unshift({
+      label: "Accuse a suspect",
+      cmd: null,                 // placeholder; will pop open a mini picker
+      kind: "accuse-pick",
+    });
+  }
+
+  // Limit to 4 primary options + "Other…"
+  const limited = suggs.slice(0, 4);
+  limited.push({ label: "Other…", cmd: null, kind: "other" });
+  return limited;
+}
+
+function renderSuggestions() {
+  const wrap = document.getElementById("suggestions");
+  wrap.innerHTML = "";
+  if (state.gameOver) {
+    const info = document.createElement("div");
+    info.className = "muted";
+    info.style.cssText = "padding: 10px 4px; width:100%; text-align:center; font-style:italic; font-size:13px; color: var(--muted);";
+    info.textContent = "Case closed. Press Reset below to start a new investigation.";
+    wrap.appendChild(info);
+    return;
+  }
+  const suggs = buildSuggestions();
+  suggs.forEach(s => {
+    const btn = document.createElement("button");
+    btn.textContent = s.label;
+    if (s.kind === "other") btn.classList.add("other");
+    if (s.kind === "accuse-pick") btn.classList.add("accuse");
+    btn.addEventListener("click", () => {
+      if (s.kind === "other") {
+        showFreeInput();
+      } else if (s.kind === "accuse-pick") {
+        showAccusePicker();
+      } else if (s.cmd) {
+        runCommand(s.cmd);
+      }
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+function showFreeInput() {
+  const form = document.getElementById("input-form");
+  form.classList.remove("hidden-free");
+  document.getElementById("hint-text").innerHTML =
+    'Type anything (≤ 8 words). Inspector Rothwell will do his best to make sense of it.';
+  document.getElementById("cmd").focus();
+}
+function hideFreeInput() {
+  const form = document.getElementById("input-form");
+  form.classList.add("hidden-free");
+  document.getElementById("cmd").value = "";
+  document.getElementById("hint-text").innerHTML =
+    'Pick a suggested move below, or click <b>Other…</b> to type your own command.';
+}
+
+function showAccusePicker() {
+  const wrap = document.getElementById("suggestions");
+  wrap.innerHTML = "";
+  const label = document.createElement("div");
+  label.style.cssText = "width:100%; padding: 4px 4px 6px; font-size: 12px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase;";
+  label.textContent = "Who do you accuse?";
+  wrap.appendChild(label);
+  const suspects = Object.values(DATA.characters).filter(c => c.role === "suspect" || c.role === "conspirator");
+  suspects.forEach(c => {
+    const btn = document.createElement("button");
+    btn.className = "accuse";
+    btn.textContent = c.name;
+    btn.addEventListener("click", () => runCommand("accuse " + firstAlias(c)));
+    wrap.appendChild(btn);
+  });
+  const back = document.createElement("button");
+  back.className = "other";
+  back.textContent = "← Back";
+  back.addEventListener("click", renderSuggestions);
+  wrap.appendChild(back);
 }
 
 function renderSidebar() {
@@ -682,6 +897,8 @@ function runCommand(raw) {
   }
   saveState();
   renderSidebar();
+  renderSuggestions();
+  hideFreeInput();
 }
 
 // -------------------- wiring --------------------
@@ -703,7 +920,11 @@ document.getElementById("reset-btn").addEventListener("click", () => {
   logEl.innerHTML = "";
   greet();
   renderSidebar();
+  renderSuggestions();
+  hideFreeInput();
 });
+
+document.getElementById("cancel-free-btn").addEventListener("click", hideFreeInput);
 
 function greet() {
   addLog("The Hartley Affair — " + DATA.detective_name + " begins the investigation.", "system");
@@ -713,6 +934,7 @@ function greet() {
 }
 
 renderSidebar();
+renderSuggestions();
 if (state.executedEvents.length === 0 && state.turns === 0) greet();
 else addLog("(Session resumed. " + state.executedEvents.length + " plot events already explored.)", "system");
 </script>
