@@ -46,8 +46,6 @@ Pick one, set **Runtime → Change runtime type → GPU**, and run top-to-bottom
 | Total runtime | ~12 minutes |
 | Estimated cost | ~$0.50 per full run |
 
-Covers install + smoke test + `main.py build` + `main.py assemble` + the two scripted replays, using `claude-sonnet-4-5` as the default model. Swapping to `claude-haiku-4-5` drops cost roughly 5×; swapping to `claude-opus-4-7` raises it roughly 5× and runtime ~2×.
-
 ### Successful Case
 
 A successful output example is available in [`data/final_story.md`](data/final_story.md). The plot-point breakdown that drives it is in [`data/plot_points.json`](data/plot_points.json).
