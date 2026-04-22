@@ -39,6 +39,31 @@ Three Colab entry points, all under `colab/`:
 
 Pick one, set **Runtime → Change runtime type → GPU**, and run top-to-bottom. Both boot a local vLLM OpenAI-compatible server, generate one fixed story, **assemble a novel-style `final_story.md`** (no interaction needed), and replay both a successful playthrough and an exception playthrough — all inside the single runtime.
 
+### Expected runtime and cost (Claude API version)
+
+| Metric | Value |
+|---|---|
+| Total runtime | ~12 minutes |
+| Estimated cost | ~$0.50 per full run |
+
+Covers install + smoke test + `main.py build` + `main.py assemble` + the two scripted replays, using `claude-sonnet-4-5` as the default model. Swapping to `claude-haiku-4-5` drops cost roughly 5×; swapping to `claude-opus-4-7` raises it roughly 5× and runtime ~2×.
+
+### Successful Case
+
+A successful output example is available in [`data/final_story.md`](data/final_story.md). The plot-point breakdown that drives it is in [`data/plot_points.json`](data/plot_points.json).
+
+The matching interactive playthrough lives in the logs:
+
+| Artifact | What it shows |
+|---|---|
+| [`transcripts/success_run.txt`](transcripts/success_run.txt) | 21-turn script that solves the crime |
+| [`logs/turns_success.jsonl`](logs/turns_success.jsonl) | one line per turn — raw input, parsed action, classification, effects applied, narration |
+| [`logs/drama_success.jsonl`](logs/drama_success.jsonl) | every drama-manager decision from that run |
+
+In this run the detective (Inspector James Whitaker) correctly identifies Eleanor Voss as the poisoner of Lord Reginald Whitmore. The goal predicate becomes satisfied at turn 21 (`accuse victoria harrington` → cross-referenced evidence + identification both present in `detective.knowledge`), and the engine prints `>>> The case is solved. <<<`. The drama manager fired **zero accommodations** across the run — every action was classified as `constituent` or `consistent`, which is what we want for a clean path.
+
+For the complementary failure-triggering example (3 accommodations, including the canonical "smash the flute" open-action case), see [`logs/turns_exception.jsonl`](logs/turns_exception.jsonl) and [`logs/drama_exception.jsonl`](logs/drama_exception.jsonl).
+
 Model is auto-selected from GPU VRAM:
 
 | GPU | Model | Weights (bf16) |
