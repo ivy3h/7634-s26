@@ -355,6 +355,7 @@ let state;
 function freshState() {
   return {
     location: DATA.starting_location,
+    lastLocation: null,          // so hints don't suggest retreating
     knowledge: [],
     inventory: [],
     executedEvents: [],
@@ -450,20 +451,35 @@ function buildHintCommands() {
     }
   }
 
-  // C. One exit suggestion if we're low.
+  // C. Exit suggestions, ranked by how much investigation work is waiting
+  //    for the detective there. Skip the location we just came from so
+  //    hints don't send you in loops.
+  function eventsWaitingAt(locId) {
+    return Object.values(DATA.events).filter(
+      ev => ev.location === locId && !state.executedEvents.includes(ev.id)
+    ).length;
+  }
   if (loc && loc.adjacent.length && hints.length < 4) {
-    const firstAdj = DATA.locations[loc.adjacent[0]];
-    if (firstAdj) hints.push("go to " + locAlias(firstAdj));
+    const ranked = loc.adjacent
+      .filter(id => id !== state.lastLocation)
+      .map(id => ({id, score: eventsWaitingAt(id), loc: DATA.locations[id]}))
+      .filter(x => x.loc)
+      .sort((a, b) => b.score - a.score);
+    // Offer at most two exits, prefer ones with work to do.
+    for (const x of ranked.slice(0, 2)) {
+      if (hints.length >= 4) break;
+      hints.push("go to " + locAlias(x.loc));
+    }
+    // If we filtered out everything (only neighbor was lastLocation), allow it back.
+    if (hints.length === 0) {
+      const fallback = loc.adjacent.map(id => DATA.locations[id]).filter(Boolean)[0];
+      if (fallback) hints.push("go to " + locAlias(fallback));
+    }
   }
 
   // D. Fallback baseline.
   if (hints.length === 0) {
     hints.push("look");
-    const loc2 = currentLoc();
-    if (loc2 && loc2.adjacent.length) {
-      const adj = DATA.locations[loc2.adjacent[0]];
-      if (adj) hints.push("go to " + locAlias(adj));
-    }
   }
 
   // E. Endgame nudge.
@@ -741,6 +757,7 @@ function handleMove(target) {
     addLog("You'd have to pass through somewhere else first. " + loc.name + " isn't directly reachable from " + (cur ? cur.name : "here") + ".", "outcome");
     return;
   }
+  state.lastLocation = state.location;
   state.location = loc.id;
   addLog("You make your way to " + loc.name + ".", "system");
   addLog(loc.description, "outcome");
