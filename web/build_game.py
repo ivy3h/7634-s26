@@ -503,8 +503,8 @@ aside.left .scene-desc {
 .scroll-list::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
 .scroll-list::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-.knowledge { max-height: 28vh; }
-#suspects  { max-height: 22vh; }
+.knowledge { max-height: 26vh; }
+#suspects  { max-height: 30vh; }
 
 .knowledge li { position: relative; padding-left: 14px; }
 .knowledge li::before { content: "●"; position: absolute; left: 0; color: var(--accent); font-size: 12px; top: 4px; }
