@@ -1,0 +1,26 @@
+{
+  "case_summary": "Murder of Edmund Hartley",
+  "victim_name": "Edmund Hartley",
+  "detective_name": "Inspector James Rothwell",
+  "partner_name": "Detective Martinez",
+  "real_criminal": "Vivienne Ashford",
+  "fake_suspect": "Geoffrey Hartley",
+  "conspirator_names": [
+    "Dr. Marcus Pemberton",
+    "Charlotte Devereaux",
+    "Thomas Blackwood"
+  ],
+  "suspect_names": [
+    "Lady Beatrice Worthington",
+    "Gregory Sutherland",
+    "Isabella Rossi",
+    "Arthur Fenwick"
+  ],
+  "key_evidence": [
+    "A ladies' gold ring with an ornate flower design found near the victim's body, appears to have a small hollow compartment in the band",
+    "Multiple witnesses report seeing Vivienne and Edmund in an intense private conversation in her office 30 minutes before the opening ceremony",
+    "A partially burned shipping manifest found in the gallery's furnace room listing art supplies from a suspicious Belgian supplier"
+  ],
+  "murder_method": "Administered arsenic trioxide dissolved in champagne using a hollow ring mechanism that released the poison when she clinked glasses with Edmund during the toast",
+  "murder_location": "A wealthy art collector and authentication expert, age 52, known for his meticulous research and recent investigations into forgeries flooding the London art market. He was Vivienne's estranged half-brother from their father's first marriage, and they had been competing for their late father's estate"
+}

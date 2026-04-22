@@ -1,0 +1,282 @@
+{
+  "locations": {
+    "location.study": {
+      "id": "location.study",
+      "name": "The Study",
+      "description": "A gentleman's study thick with pipe smoke and the musty scent of leather-bound volumes, where gaslight flickers across mahogany paneling and casts dancing shadows over the cluttered desk. The Persian rug muffles footsteps, and heavy velvet curtains shield the room from the fog-shrouded London street beyond.",
+      "adjacent": [
+        "location.london_streets"
+      ],
+      "characters": [],
+      "evidence": [
+        "evidence.E001"
+      ]
+    },
+    "location.worthington_estate": {
+      "id": "location.worthington_estate",
+      "name": "Worthington Estate",
+      "description": "The imposing Georgian manor looms behind wrought-iron gates, its manicured lawns and topiary gardens speaking of old money and older secrets. Inside, crystal chandeliers cast flickering shadows across portrait-lined halls where the whisper of scandal mingles with the scent of pipe tobacco and aged brandy.",
+      "adjacent": [
+        "location.forensic_laboratory",
+        "location.london_streets"
+      ],
+      "characters": [
+        "character.lady_beatrice_worthington"
+      ],
+      "evidence": []
+    },
+    "location.forensic_laboratory": {
+      "id": "location.forensic_laboratory",
+      "name": "Scotland Yard Forensic Laboratory",
+      "description": "A stark, tile-walled chamber reeking of formaldehyde and carbolic acid, where gleaming microscopes and glass beakers crowd wooden benches beneath harsh electric lights. Specimen jars line metal shelves along the walls, their contents floating in preservative fluids like grim trophies of London's darkest secrets.",
+      "adjacent": [
+        "location.hartley_study",
+        "location.worthington_estate"
+      ],
+      "characters": [],
+      "evidence": [
+        "evidence.E004",
+        "evidence.E005"
+      ]
+    },
+    "location.hartley_study": {
+      "id": "location.hartley_study",
+      "name": "Hartley's Study",
+      "description": "Heavy velvet curtains block the grey London light, leaving only the green-shaded desk lamp to illuminate rows of leather-bound legal volumes and the lingering haze of pipe tobacco. A Persian rug muffles footsteps before the mahogany desk, where papers lie scattered in uncharacteristic disarray.",
+      "adjacent": [
+        "location.forensic_laboratory",
+        "location.gentlemens_club"
+      ],
+      "characters": [],
+      "evidence": [
+        "evidence.E003"
+      ]
+    },
+    "location.gentlemens_club": {
+      "id": "location.gentlemens_club",
+      "name": "The Athenaeum Club",
+      "description": "Leather wingback chairs and the acrid sweetness of pipe tobacco dominate the dimly-lit reading room, where silver-haired gentlemen rustle their newspapers and speak in hushed tones beneath oil portraits of long-dead members. The thick Persian carpets muffle every footfall, creating an atmosphere of secrets kept and confidences shared only among those who belong.",
+      "adjacent": [
+        "location.hartley_study",
+        "location.lady_beatrice_residence"
+      ],
+      "characters": [
+        "character.gregory_sutherland"
+      ],
+      "evidence": [
+        "E003"
+      ]
+    },
+    "location.lady_beatrice_residence": {
+      "id": "location.lady_beatrice_residence",
+      "name": "Lady Beatrice's Mayfair Residence",
+      "description": "A stately Georgian townhouse where crystal chandeliers cast prismatic light across rooms heavy with Persian carpets and the lingering scent of French cigarettes. Behind velvet curtains and locked mahogany doors, secrets gather like dust in the corners of gilt-framed portraits watching with knowing eyes.",
+      "adjacent": [
+        "location.drawing_room",
+        "location.gentlemens_club"
+      ],
+      "characters": [],
+      "evidence": [
+        "evidence.E001",
+        "evidence.E002"
+      ]
+    },
+    "location.drawing_room": {
+      "id": "location.drawing_room",
+      "name": "The Drawing Room",
+      "description": "Pale afternoon light filters through heavy brocade curtains, illuminating motes of dust that drift above overstuffed Chesterfield sofas and an ornate marble mantelpiece. The faint scent of Turkish cigarettes lingers in the air, mingling with the musty perfume of old money and older secrets.",
+      "adjacent": [
+        "location.grand_imperial_hotel",
+        "location.lady_beatrice_residence"
+      ],
+      "characters": [
+        "character.vivienne_hartley"
+      ],
+      "evidence": [
+        "evidence.E003",
+        "evidence.E005"
+      ]
+    },
+    "location.grand_imperial_hotel": {
+      "id": "location.grand_imperial_hotel",
+      "name": "The Grand Imperial Hotel",
+      "description": "A palatial establishment on Park Lane where crystal chandeliers cast prismatic light across marble floors, and liveried porters glide silently through corridors thick with cigar smoke and whispered scandal. Behind its gilt-edged fa\u00e7ade of old money respectability, the Grand Imperial harbors secrets in every shadowed alcove and private suite.",
+      "adjacent": [
+        "location.drawing_room",
+        "location.security_office"
+      ],
+      "characters": [
+        "character.isabella_rossi"
+      ],
+      "evidence": [
+        "evidence.E003",
+        "evidence.E005"
+      ]
+    },
+    "location.security_office": {
+      "id": "location.security_office",
+      "name": "Security Office",
+      "description": "A cramped office reeking of tobacco and damp wool, where a single brass desk lamp casts long shadows across incident logs and a wall-mounted rotary telephone. Keys hang on numbered hooks beside a rain-streaked window overlooking the fog-shrouded courtyard.",
+      "adjacent": [
+        "location.grand_imperial_hotel",
+        "location.riverside_golf_club"
+      ],
+      "characters": [],
+      "evidence": [
+        "evidence.E001",
+        "evidence.E003",
+        "evidence.E007"
+      ]
+    },
+    "location.riverside_golf_club": {
+      "id": "location.riverside_golf_club",
+      "name": "Riverside Golf Club",
+      "description": "An exclusive gentleman's club overlooking the Thames, where cigar smoke mingles with river mist in the oak-paneled lounge and hushed conversations drift across manicured greens. The clubhouse, with its leather armchairs and portraits of distinguished members, maintains an atmosphere of old money privilege where secrets are kept as carefully as scorecards.",
+      "adjacent": [
+        "location.scotland_yard_forensic_laboratory",
+        "location.security_office"
+      ],
+      "characters": [
+        "character.arthur_fenwick"
+      ],
+      "evidence": [
+        "evidence.E004"
+      ]
+    },
+    "location.scotland_yard_forensic_laboratory": {
+      "id": "location.scotland_yard_forensic_laboratory",
+      "name": "Scotland Yard Forensic Laboratory",
+      "description": "Gas lamps cast wavering shadows across cluttered workbenches laden with microscopes, test tubes, and specimen jars containing grim evidence from London's darkest crimes. The sharp tang of chemical reagents mingles with cigarette smoke in the cramped basement room, where fingerprint powder dusts every surface like fine soot.",
+      "adjacent": [
+        "location.gallery_furnace_room",
+        "location.riverside_golf_club"
+      ],
+      "characters": [],
+      "evidence": [
+        "evidence.E003",
+        "evidence.E007"
+      ]
+    },
+    "location.gallery_furnace_room": {
+      "id": "location.gallery_furnace_room",
+      "name": "Gallery Furnace Room",
+      "description": "A sweltering brick chamber beneath the gallery where the coal furnace roars and clanks, its iron door casting dancing orange light across soot-stained walls. The air hangs thick with coal dust and the acrid smell of burning coke, while overhead pipes hiss and groan like restless spirits.",
+      "adjacent": [
+        "location.police_station",
+        "location.scotland_yard_forensic_laboratory"
+      ],
+      "characters": [],
+      "evidence": [
+        "evidence.E003"
+      ]
+    },
+    "location.police_station": {
+      "id": "location.police_station",
+      "name": "Scotland Yard",
+      "description": "Gas lamps cast wavering shadows across the austere brick facade of the Metropolitan Police headquarters, where the acrid smell of coal smoke mingles with damp fog seeping through every corridor. Inside, the clatter of typewriters echoes through dim hallways lined with frosted glass doors bearing the names of inspectors in peeling gold leaf.",
+      "adjacent": [
+        "location.gallery_furnace_room",
+        "location.london_streets"
+      ],
+      "characters": [],
+      "evidence": [
+        "evidence.E005"
+      ]
+    },
+    "location.home_office_morgue": {
+      "id": "location.home_office_morgue",
+      "name": "Dr. Ashworth's Home Office",
+      "description": "The converted study reeks of formaldehyde and pipe tobacco, its mahogany bookshelves now sharing space with glass specimen jars and gleaming surgical instruments. A single examination table dominates the Persian rug, its leather surface stained dark from countless post-mortem examinations conducted by gaslight.",
+      "adjacent": [
+        "location.london_streets",
+        "location.scotland_yard_interrogation_room"
+      ],
+      "characters": [],
+      "evidence": [
+        "evidence.E005"
+      ]
+    },
+    "location.scotland_yard_interrogation_room": {
+      "id": "location.scotland_yard_interrogation_room",
+      "name": "Scotland Yard Interrogation Room",
+      "description": "A stark, windowless chamber where a single electric bulb swings lazily overhead, casting shifting shadows across scarred wooden table and chairs bolted to the floor. The air hangs thick with decades of cigarette smoke and nervous perspiration, while the faint echo of footsteps from the corridor beyond reminds suspects that the Metropolitan Police never sleep.",
+      "adjacent": [
+        "location.home_office_morgue",
+        "location.london_streets"
+      ],
+      "characters": [
+        "character.dr_marcus_pemberton"
+      ],
+      "evidence": [
+        "evidence.E003",
+        "evidence.E005"
+      ]
+    },
+    "location.gallery_office": {
+      "id": "location.gallery_office",
+      "name": "Gallery Office",
+      "description": "A cramped office tucked behind the exhibition rooms, where cigarette smoke mingles with the scent of linseed oil and turpentine. Ledgers and auction catalogues teeter in precarious stacks beside a brass desk lamp that casts long shadows across invoices marked with suspicious amendments.",
+      "adjacent": [
+        "location.london_streets",
+        "location.police_precinct"
+      ],
+      "characters": [],
+      "evidence": [
+        "evidence.E001"
+      ]
+    },
+    "location.police_precinct": {
+      "id": "location.police_precinct",
+      "name": "Scotland Yard",
+      "description": "Gas lamps cast wavering shadows across the austere brick facade, while inside, the acrid smell of pipe tobacco mingles with carbolic soap in corridors that echo with the clatter of typewriters and the heavy tread of constables' boots. Rain-streaked windows overlook the Thames, their panes rattling whenever a motor car rumbles past on the fog-dampened street below.",
+      "adjacent": [
+        "location.ashford_townhouse",
+        "location.gallery_office"
+      ],
+      "characters": [],
+      "evidence": [
+        "evidence.E004"
+      ]
+    },
+    "location.ashford_townhouse": {
+      "id": "location.ashford_townhouse",
+      "name": "Ashford Townhouse",
+      "description": "A stately Georgian townhouse on a gas-lit square in Belgravia, its cream-colored facade and black iron railings concealing rooms thick with cigar smoke and whispered secrets. The marble-floored entrance hall echoes with footsteps, while heavy velvet curtains in the drawing room shut out the fog-shrouded London night.",
+      "adjacent": [
+        "location.police_precinct"
+      ],
+      "characters": [
+        "character.vivienne_ashford"
+      ],
+      "evidence": [
+        "E006",
+        "E007",
+        "E008"
+      ]
+    },
+    "location.london_streets": {
+      "id": "location.london_streets",
+      "name": "London Streets",
+      "description": "The cobblestone streets and thoroughfares of 1920s London connecting various locations across the city",
+      "adjacent": [
+        "location.gallery_office",
+        "location.home_office_morgue",
+        "location.police_station",
+        "location.scotland_yard_interrogation_room",
+        "location.study",
+        "location.worthington_estate"
+      ],
+      "characters": [],
+      "evidence": []
+    },
+    "location.scotland_yard_entrance": {
+      "id": "location.scotland_yard_entrance",
+      "name": "Scotland Yard Entrance",
+      "description": "The main entrance and reception area of Scotland Yard headquarters",
+      "adjacent": [],
+      "characters": [],
+      "evidence": []
+    }
+  },
+  "starting_location": "location.study"
+}

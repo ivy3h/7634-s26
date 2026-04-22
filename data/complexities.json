@@ -1,0 +1,80 @@
+{
+  "fake_suspect": {
+    "name": "Geoffrey Hartley",
+    "framing_reason": "Edmund's estranged brother who stood to inherit the family estate and had publicly threatened Edmund over a business dispute two weeks prior"
+  },
+  "planted_evidence": [
+    {
+      "description": "A receipt for arsenic trioxide purchased from a chemical supply company found in Geoffrey's hotel room wastebasket",
+      "points_to": "fake_suspect"
+    },
+    {
+      "description": "Handwritten notes detailing the gallery's layout and Edmund's typical champagne preferences discovered in Geoffrey's rental car",
+      "points_to": "fake_suspect"
+    },
+    {
+      "description": "Text messages on a burner phone showing Geoffrey coordinating with an unknown accomplice about 'the gallery event'",
+      "points_to": "fake_suspect"
+    }
+  ],
+  "false_testimonies": [
+    {
+      "witness": "Dr. Marcus Pemberton",
+      "claim": "I saw Geoffrey Hartley lurking near the champagne service area around 18:55, acting suspiciously and watching Edmund intently"
+    },
+    {
+      "witness": "Charlotte Devereaux",
+      "claim": "Geoffrey approached me earlier in the evening asking which glass Edmund would be drinking from, claiming he wanted to make a surprise toast to reconcile"
+    },
+    {
+      "witness": "Thomas Blackwood",
+      "claim": "Camera 7 malfunctioned naturally due to age, but I reviewed footage before it went down and saw Geoffrey entering the service corridor near the champagne preparation area"
+    },
+    {
+      "witness": "Vivienne Ashford",
+      "claim": "Geoffrey had sent me threatening letters about Edmund in the past month, warning that Edmund would 'pay for his betrayals' at a public event"
+    }
+  ],
+  "fake_timeline": [
+    {
+      "time": "18:25",
+      "event": "Geoffrey Hartley arrives at gallery but remains outside, watching through windows"
+    },
+    {
+      "time": "18:50",
+      "event": "Geoffrey enters through service entrance and accesses champagne preparation area undetected"
+    },
+    {
+      "time": "18:55",
+      "event": "Geoffrey poisons a specific champagne glass intended for Edmund, then exits quickly"
+    },
+    {
+      "time": "19:15",
+      "event": "Geoffrey watches from the crowd as Edmund receives the poisoned glass during the toast"
+    },
+    {
+      "time": "19:22",
+      "event": "Geoffrey slips out during the confusion as Edmund collapses"
+    },
+    {
+      "time": "19:30",
+      "event": "Geoffrey returns to his hotel, disposing of poison container in public trash bin two blocks away"
+    }
+  ],
+  "evidence_fabrications": {
+    "E001": "The champagne glass fragments contain arsenic residue that matches the chemical signature of the supply company receipt found in Geoffrey's possession",
+    "E002": "Security camera 7 footage gap was caused by Geoffrey's accomplice creating a technical malfunction to hide his access to the service area",
+    "E003": "The shipping manifest fragment found in the furnace was actually from Geoffrey's poison purchase, carelessly discarded by him during his escape",
+    "E004": "Vivienne's ring tested positive for arsenic because Geoffrey brushed against her during the crowd confusion, transferring trace amounts",
+    "E005": "The waiter's testimony about Charlotte's champagne instructions was actually about Geoffrey disguised as service staff giving those same instructions",
+    "E006": "Dr. Pemberton's medical bag contained standard emergency supplies; any arsenic traces came from treating Edmund and environmental contamination",
+    "E007": "The false alarm in the sculpture room was triggered accidentally by gallery equipment malfunction, coincidentally benefiting Geoffrey's escape timing",
+    "E008": "Thomas Blackwood's maintenance logs show the camera failure was spontaneous, but Geoffrey had researched the gallery's aging security system beforehand"
+  },
+  "conspirator_alibis": {
+    "Dr. Marcus Pemberton": "I was mingling with guests in the sculpture wing from 18:30 to 19:20, discussing art acquisitions with several collectors who can verify my presence, then responded immediately to Edmund's collapse as any physician would",
+    "Charlotte Devereaux": "I was coordinating with catering staff throughout the evening as the event manager, ensuring proper service flow, and was in the kitchen area from 18:55 to 19:15 reviewing the dessert presentation schedule with the head chef",
+    "Thomas Blackwood": "I was conducting routine security rounds of the perimeter and upper galleries from 19:00 to 19:20, as documented in my security log, and only learned of camera 7's malfunction when I returned to the control room",
+    "Vivienne Ashford": "I was hosting guests and fulfilling my duties as gallery owner, speaking with Edmund briefly about a potential acquisition, then making the traditional ceremonial toast as I do at every opening event"
+  }
+}
