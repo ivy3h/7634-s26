@@ -764,8 +764,8 @@ function interpret(raw) {
   // Destroy-family (drama-manager exception)
   m = clean.match(/^(?:smash|destroy|break|shatter|burn|hide|steal|pocket|throw away)\s+(.+)$/);
   if (m) return {verb: "destroy", target: m[1].trim()};
-  // Interview / question / talk to
-  m = clean.match(/^(?:interview|question|talk\s+to|ask|confront|speak\s+to)\s+(.+)$/);
+  // Interview / question / talk to / confront / consult (expert or witness)
+  m = clean.match(/^(?:interview|question|talk\s+to|ask|confront|speak\s+to|consult)\s+(.+)$/);
   if (m) return {verb: "interview", target: m[1].trim()};
   // Examine / inspect
   m = clean.match(/^(?:examine|inspect|look\s+at|study|observe|check)\s+(.+)$/);
@@ -773,8 +773,8 @@ function interpret(raw) {
   // Analyze / test
   m = clean.match(/^(?:analyze|analyse|test|run)\s+(.+)$/);
   if (m) return {verb: "analyze", target: m[1].trim()};
-  // Search
-  m = clean.match(/^(?:search|explore|look\s+around|scour)\s+(.+)$/);
+  // Search / investigate
+  m = clean.match(/^(?:search|explore|look\s+around|scour|investigate)\s+(.+)$/);
   if (m) return {verb: "search", target: m[1].trim()};
   // Visit
   m = clean.match(/^visit\s+(.+)$/);
@@ -938,9 +938,14 @@ function handleExamine(target) {
 }
 
 function handleInterview(target) {
+  // Try to match a plan event at this location first. Consult-type events
+  // may reference off-screen experts (e.g. 'Dr. Helena Frost' called in to
+  // authenticate a painting) who aren't in the room's character list.
+  const evPre = eventAtHereMatching("interview", target);
+  if (evPre) { executeEvent(evPre); return; }
   const c = matchCharacter(target);
   if (!c) {
-    addLog("You call out for " + target + ", but no one answers. Try questioning the people listed in the left panel.", "outcome");
+    addLog("You call out for " + target + ", but no one answers. Try questioning someone listed in the left panel, or move to a location where that person is waiting.", "outcome");
     return;
   }
   const loc = currentLoc();
@@ -948,9 +953,7 @@ function handleInterview(target) {
     addLog(c.name + " isn't here. You'll need to find them first.", "outcome");
     return;
   }
-  const ev = eventAtHereMatching("interview", c.name);
-  if (ev) { executeEvent(ev); return; }
-  addLog(c.name + " answers politely but says nothing that moves the case forward.", "outcome");
+  addLog(c.name + " answers politely but says nothing that moves the case forward here.", "outcome");
 }
 
 function handleAnalyze(target) {
