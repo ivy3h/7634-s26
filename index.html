@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Hartley Affair &mdash; Interactive Mystery</title>
+<style>
+:root {
+  --bg: #14100d;
+  --panel: #1f1a15;
+  --paper: #f4ecdc;
+  --ink: #1c1a17;
+  --accent: #b38a4a;
+  --accent-soft: #c9a878;
+  --danger: #b34a4a;
+  --good: #4a9b5d;
+  --muted: #8a7b66;
+  --rule: #2c251e;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--paper);
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-size: 17px;
+  line-height: 1.65;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+header.masthead {
+  padding: 28px 40px 18px;
+  border-bottom: 1px solid var(--rule);
+  background: linear-gradient(180deg, #1a140f 0%, var(--bg) 100%);
+}
+header.masthead h1 {
+  margin: 0;
+  font-family: "Playfair Display", "Didot", "Bodoni 72", serif;
+  font-size: 34px;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  text-shadow: 0 1px 0 #0006;
+}
+header.masthead .subtitle {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-style: italic;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr 260px;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+}
+aside.nav, aside.tracker {
+  padding: 26px 20px;
+  background: var(--panel);
+  overflow-y: auto;
+}
+aside.nav { border-right: 1px solid var(--rule); }
+aside.tracker { border-left: 1px solid var(--rule); }
+aside h3 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-soft);
+  margin: 0 0 12px;
+}
+ol.toc {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+}
+ol.toc li {
+  padding: 8px 10px;
+  margin: 4px -10px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 15px;
+  color: var(--paper);
+  border-left: 3px solid transparent;
+  transition: background .15s, border-color .15s;
+}
+ol.toc li:hover { background: rgba(179, 138, 74, 0.12); }
+ol.toc li.active {
+  background: rgba(179, 138, 74, 0.22);
+  border-left-color: var(--accent);
+}
+ol.toc li.read::after {
+  content: " ✓";
+  color: var(--good);
+}
+ol.toc li.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+ol.toc li.locked::after {
+  content: " \1F512";
+  color: var(--muted);
+}
+.progress {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--rule);
+}
+.progress strong { color: var(--paper); }
+
+main {
+  overflow-y: auto;
+  padding: 40px 56px 60px;
+  background: var(--bg);
+  scroll-behavior: smooth;
+}
+article.reader {
+  max-width: 720px;
+  margin: 0 auto;
+  background: var(--paper);
+  color: var(--ink);
+  padding: 56px 64px 72px;
+  border-radius: 3px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.3);
+  position: relative;
+}
+article.reader::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(28,26,23,0.15);
+  pointer-events: none;
+  border-radius: 2px;
+}
+article.reader h2 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 30px;
+  margin: 0 0 6px;
+  color: var(--accent);
+  letter-spacing: 0.01em;
+  border-bottom: 1px solid rgba(28,26,23,0.18);
+  padding-bottom: 12px;
+}
+article.reader .ch-meta {
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 24px;
+}
+article.reader p {
+  margin: 0 0 14px;
+  text-align: justify;
+  hyphens: auto;
+}
+article.reader p:first-of-type::first-letter {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 42px;
+  font-weight: 700;
+  color: var(--accent);
+  float: left;
+  line-height: 0.9;
+  margin: 6px 6px -4px 0;
+}
+article.reader em { color: #3e2f1c; }
+
+nav.controls {
+  max-width: 720px;
+  margin: 24px auto 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+nav.controls button {
+  background: var(--panel);
+  color: var(--paper);
+  border: 1px solid var(--rule);
+  padding: 10px 18px;
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+nav.controls button:disabled { opacity: 0.35; cursor: not-allowed; }
+nav.controls button:not(:disabled):hover {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+/* Evidence tracker (right column) */
+ul.evidence {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+ul.evidence li {
+  padding: 8px 10px;
+  margin: 0 -10px;
+  font-size: 13px;
+  color: var(--muted);
+  border-left: 3px solid var(--rule);
+  transition: color .2s, border-color .2s;
+}
+ul.evidence li.discovered {
+  color: var(--paper);
+  border-left-color: var(--accent);
+}
+ul.evidence li.discovered::before {
+  content: "● ";
+  color: var(--accent);
+}
+ul.evidence li:not(.discovered)::before {
+  content: "○ ";
+}
+
+/* Guess widget */
+section.guess {
+  max-width: 720px;
+  margin: 40px auto 0;
+  background: #2a2219;
+  border: 1px solid var(--accent);
+  padding: 28px 36px;
+  border-radius: 4px;
+}
+section.guess h2 {
+  font-family: "Playfair Display", Georgia, serif;
+  color: var(--accent);
+  margin: 0 0 10px;
+  font-size: 24px;
+}
+section.guess p { margin: 0 0 18px; color: var(--paper); }
+.suspect-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.suspect-grid button {
+  padding: 14px 12px;
+  background: var(--panel);
+  color: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .15s, background .15s;
+}
+.suspect-grid button:hover { border-color: var(--accent); background: #241d16; }
+.suspect-grid button.chosen.correct { border-color: var(--good); background: rgba(74,155,93,0.15); }
+.suspect-grid button.chosen.wrong   { border-color: var(--danger); background: rgba(179,74,74,0.12); }
+#guess-result {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--accent);
+  background: rgba(179, 138, 74, 0.08);
+  font-size: 15px;
+  color: var(--paper);
+  display: none;
+}
+#guess-result.shown { display: block; }
+#guess-result.correct { border-left-color: var(--good); }
+#guess-result.wrong   { border-left-color: var(--danger); }
+
+.hidden { display: none !important; }
+
+footer.meta {
+  text-align: center;
+  padding: 20px 16px 32px;
+  font-size: 12px;
+  color: var(--muted);
+  border-top: 1px solid var(--rule);
+  background: var(--panel);
+}
+footer.meta a { color: var(--accent-soft); text-decoration: none; }
+
+@media (max-width: 980px) {
+  .layout { grid-template-columns: 1fr; }
+  aside.nav, aside.tracker { border: none; border-bottom: 1px solid var(--rule); }
+  main { padding: 24px 14px 40px; }
+  article.reader { padding: 32px 28px 44px; }
+}
+</style>
+</head>
+<body>
+<header class="masthead">
+  <h1>The Hartley Affair</h1>
+  <p class="subtitle">An Interactive Mystery &middot; CS 7634 Phase II &middot; Template 2</p>
+</header>
+
+<div class="layout">
+  <aside class="nav">
+    <h3>Chapters</h3>
+    <ol class="toc" id="toc"></ol>
+    <div class="progress">
+      Chapters read: <strong id="read-count">0</strong> / <strong id="chapter-total">0</strong><br>
+      <button id="reset-btn" style="margin-top:10px; font-size: 11px; background: transparent; color: var(--muted); border: 1px solid var(--rule); padding: 4px 8px; cursor: pointer;">Reset progress</button>
+    </div>
+  </aside>
+
+  <main>
+    <article class="reader" id="reader">
+      <!-- rendered on load -->
+    </article>
+
+    <nav class="controls">
+      <button id="prev-btn">&larr; Previous</button>
+      <button id="next-btn">Next &rarr;</button>
+    </nav>
+
+    <section class="guess hidden" id="guess">
+      <h2>Name the killer</h2>
+      <p>You've followed the trail to its apparent end. Before you read the Inspector's final verdict, who do <em>you</em> think poisoned Edmund Hartley?</p>
+      <div class="suspect-grid" id="suspect-grid"></div>
+      <div id="guess-result"></div>
+    </section>
+  </main>
+
+  <aside class="tracker">
+    <h3>Evidence &amp; Leads</h3>
+    <ul class="evidence" id="evidence"></ul>
+    <h3 style="margin-top:22px;">Suspects</h3>
+    <ul class="evidence" id="suspect-list"></ul>
+  </aside>
+</div>
+
+<footer class="meta">
+  Interactive reader generated from <code>data/final_story.md</code>.
+  Template 2 project &middot; <a href="https://github.com/ivy3h/7634-s26">repo</a>.
+</footer>
+
+<script>
+const SECTIONS = [{"title": "Prologue", "kind": "prologue", "navLabel": "Prologue", "html": "<p>The crystal flutes caught the candlelight as Vivienne Ashford raised her glass, the hollow chamber in her serpent ring pressing cold against her finger.</p>\n<p>&quot;To Edmund,&quot; she announced, her voice carrying across the drawing room. &quot;To new beginnings.&quot;</p>\n<p>Edmund Hartley smiled, unsuspecting, and lifted his champagne. The others followed—Dr. Marcus Pemberton by the mantel, Charlotte Devereaux near the piano, Thomas Blackwood at the window. All watching. All complicit.</p>\n<p>The glasses met with a delicate chime.</p>\n<p>Vivienne felt the mechanism trigger, felt the arsenic trioxide slip silently into Edmund&#x27;s champagne as their rims touched. Chemistry, Marcus had assured her. Undetectable in the effervescence. Quick enough to seem like cardiac arrest.</p>\n<p>Edmund drank deeply, still smiling.</p>\n<p>She counted heartbeats. Pemberton moved closer, medical bag already in hand. Charlotte positioned herself near the door. Thomas waited by Edmund&#x27;s desk, ready to plant the arsenic tin in Geoffrey&#x27;s study upstairs—poor, gambling-addicted Geoffrey, who owed half of London and had argued publicly with his brother just yesterday.</p>\n<p>The perfect scapegoat.</p>\n<p>Edmund&#x27;s smile faltered. His hand went to his throat.</p>\n<p>&quot;Edmund?&quot; Vivienne leaned forward, concern painted perfectly across her features. &quot;Darling, what&#x27;s wrong?&quot;</p>\n<p>He collapsed before he could answer, the glass shattering against marble.</p>\n<p>Pemberton rushed forward. Charlotte screamed on cue.</p>\n<p>And Vivienne Ashford began to weep, the empty ring burning against her skin like ice.</p>\n<p>---</p>", "wordCount": 241}, {"title": "Chapter 1: Crime Scene Discovery", "kind": "chapter", "navLabel": "Chapter 1", "html": "<p>The Hartley residence still smelled of champagne and expensive perfume when Inspector James Rothwell arrived at half-past midnight. Edmund Hartley&#x27;s body remained where the guests had left it—sprawled across the drawing room&#x27;s Persian rug, one hand still reaching for the shattered flute whose champagne had pooled across the marble hearth.</p>\n<p>&quot;Natural causes, you think?&quot; Detective Martinez asked, though her tone suggested otherwise.</p>\n<p>Rothwell crouched beside the body, his penlight sweeping across Edmund&#x27;s ashen face. &quot;Men of forty-two don&#x27;t typically collapse during their own gallery-opening toast.&quot; He noted the dried foam at the corners of the victim&#x27;s mouth, the peculiar cherry-red complexion beneath the pallor. &quot;Get the medical examiner. I want toxicology rushed.&quot;</p>\n<p>His light caught something glinting near Edmund&#x27;s outstretched hand—a gold ring, partially hidden beneath the fringe of the rug. Rothwell retrieved it carefully with gloved fingers, turning it slowly beneath the penlight&#x27;s beam. Ornate flower petals were etched into the band, the craftsmanship exceptional.</p>\n<p>&quot;Martinez, look at this engraving.&quot;</p>\n<p>His partner leaned in, squinting at the delicate script inside: <em>&quot;To my dearest G, eternally yours.&quot;</em></p>\n<p>The initial struck them both simultaneously. Geoffrey Hartley—Edmund&#x27;s younger brother, sole heir to the entire Hartley estate now.</p>\n<p>&quot;Geoffrey was here tonight,&quot; Martinez said, consulting her preliminary notes. &quot;Witnesses say the brothers argued near the champagne fountain around eight o&#x27;clock. Something about their father&#x27;s will.&quot;</p>\n<p>Rothwell examined the ring more closely. A seam ran along the band, suggesting it might open, but his careful attempts revealed nothing. &quot;Bag this as priority evidence. And this—&quot; He gestured toward a second flute abandoned on the sideboard, still containing a finger of golden liquid. The rim bore a smudge of what appeared to be lipstick.</p>\n<p>&quot;Odd detail for a man who was supposed to be the evening&#x27;s toast,&quot; Martinez observed.</p>\n<p>&quot;Very odd.&quot; Rothwell stood, his mind cataloging inconsistencies. Why would Geoffrey&#x27;s ring—if it was indeed his—be here? Had Edmund torn it from his brother during a final confrontation? &quot;Get Geoffrey Hartley&#x27;s exact whereabouts for every minute of tonight. And find out if anyone saw him wearing jewelry—specifically a gold ring.&quot;</p>\n<p>The champagne caught the light, innocent and golden.</p>\n<p>Deadly, perhaps, but beautiful still.</p>\n<p>---</p>", "wordCount": 415}, {"title": "Chapter 2: The Evidence Trail", "kind": "chapter", "navLabel": "Chapter 2", "html": "<p>Inspector Rothwell placed the delicate gold ring under the jeweler&#x27;s loupe, watching as Mr. Castellano, a third-generation craftsman with thirty years of forensic consultation experience, examined the ornate flower design with practiced precision.</p>\n<p>&quot;Remarkable workmanship,&quot; Castellano murmured, his weathered fingers rotating the band beneath the magnification. &quot;Victorian era, I&#x27;d say, but the hollow compartment—that&#x27;s been added much more recently. See here, Inspector? The soldering technique is modern, perhaps within the last five years. This wasn&#x27;t a jeweler&#x27;s work, though. Too crude. Someone modified this piece themselves, or had it done quietly.&quot;</p>\n<p>He carefully opened the tiny hinged section concealed within the band&#x27;s thickness, revealing a chamber no larger than a pea. &quot;Whatever was inside has left a residue—I can see crystalline traces along the interior walls.&quot;</p>\n<p>The forensic report arrived within forty-eight hours, and Rothwell studied it with mounting unease in the incident room, Martinez reading over his shoulder. The traces were indeed arsenic trioxide—the same compound that had killed Edmund Hartley—in quantities consistent with a single lethal dose.</p>\n<p>&quot;James, you need to see this,&quot; Martinez said, spreading photographs across the desk. &quot;Three jewelers in Mayfair recognized the design immediately. It&#x27;s from the Hartley family collection—an heirloom piece. Edmund&#x27;s wife reported it missing from their estate sale inventory six months ago.&quot;</p>\n<p>She tapped a faded catalog entry. &quot;And here&#x27;s the interesting part: Geoffrey Hartley was the only family member with access to the storage vault during the inventory period. He claimed several items for &#x27;sentimental value,&#x27; but this ring wasn&#x27;t among the documented pieces.&quot;</p>\n<p>Rothwell had barely absorbed this information when the study door creaked open behind him. Dr. Marcus Pemberton stepped inside, his silver hair catching the afternoon light streaming through the window.</p>\n<p>&quot;Inspector, I thought I might find you here,&quot; he said with practiced concern, his eyes briefly flickering to the forensic photographs on the desk. &quot;I&#x27;ve been wrestling with my conscience all morning about something I witnessed the night of the gala.&quot;</p>\n<p>The doctor moved closer, hands clasped behind his back. &quot;You see, I happened to pass by the service corridor—and I saw Geoffrey there, quite agitated, examining something small in his palm. When he noticed me, he shoved it into his pocket immediately.&quot;</p>\n<p>Rothwell&#x27;s gaze sharpened. &quot;Can you describe what you saw?&quot;</p>\n<p>&quot;Something gold, Inspector. Something that caught the light.&quot;</p>\n<p>---</p>", "wordCount": 440}, {"title": "Chapter 3: The Evidence Trail", "kind": "chapter", "navLabel": "Chapter 3", "html": "<p>Inspector Rothwell adjusted his spectacles as he studied the leather-bound guest register, its pages yellowed and smelling faintly of cigar smoke. The gentlemen&#x27;s club steward, a rail-thin man who wore his livery with military precision, hovered nearby with practiced discretion.</p>\n<p>&quot;Mr. Sutherland did indeed arrive at seven o&#x27;clock, Inspector. I remember quite distinctly—he seemed rather agitated that evening, kept checking his pocket watch.&quot;</p>\n<p>&quot;And the card game?&quot; Detective Martinez pressed, her pen poised over her notebook.</p>\n<p>&quot;Concluded at half-past nine, madam. I served brandy to the gentlemen as they settled their accounts. Mr. Sutherland left shortly thereafter.&quot;</p>\n<p>Rothwell&#x27;s pulse quickened—the critical hour between ten and eleven, when Edmund Hartley had raised that fatal glass of champagne, remained unaccounted for. But before he could pursue this thread, Dr. Marcus Pemberton emerged from the smoking room, his distinguished gray beard and physician&#x27;s bearing lending him immediate authority.</p>\n<p>&quot;Inspector Rothwell? I couldn&#x27;t help but overhear. I was one of Sutherland&#x27;s card partners that evening.&quot; The doctor&#x27;s expression was grave, sympathetic. &quot;Poor fellow was quite distraught—kept muttering about Geoffrey Hartley&#x27;s mismanagement of the family business. Said Geoffrey had been threatening his brother Edmund for weeks over some financial matter.&quot;</p>\n<p>Rothwell studied the physician&#x27;s face, noting the practiced concern. &quot;Threatened him how, precisely?&quot;</p>\n<p>&quot;Sutherland didn&#x27;t specify. He left our table early because he couldn&#x27;t concentrate, said he feared what Geoffrey might do.&quot; Pemberton shook his head slowly. &quot;We all urged him to stay, but he insisted on going home. I suppose guilt weighs heavily when one suspects a family member of murderous intent.&quot;</p>\n<p>Martinez underlined Geoffrey&#x27;s name twice in her notes. Another thread connecting the nephew to Edmund&#x27;s death—yet something about Pemberton&#x27;s testimony felt rehearsed, too perfectly damning.</p>\n<p>&quot;Doctor,&quot; Rothwell said carefully, &quot;you&#x27;re a physician. In your professional opinion, what symptoms would arsenic poisoning present?&quot;</p>\n<p>Pemberton&#x27;s hand tightened almost imperceptibly on his walking stick. &quot;Arsenic? My dear Inspector, I deal in respiratory ailments, not toxicology. You&#x27;d need a specialist for such questions.&quot;</p>\n<p>The deflection was smooth, practiced. Too smooth, perhaps.</p>\n<p>---</p>", "wordCount": 398}, {"title": "Chapter 4: Suspects and Misdirection", "kind": "chapter", "navLabel": "Chapter 4", "html": "<p>Inspector Rothwell had barely settled into the drawing room of Lady Beatrice&#x27;s Kensington residence when the door opened unexpectedly. Dr. Marcus Pemberton entered with the easy familiarity of an old friend, carrying his medical bag and wearing an expression of practiced concern.</p>\n<p>&quot;Inspector, Detective Martinez—I hope you don&#x27;t mind my presence. Lady Beatrice telephoned me earlier, quite distressed about your impending visit. Given her fragile constitution, I thought it prudent to be here.&quot; He set his bag down with deliberate care, positioning himself between the detectives and the pale woman seated by the window.</p>\n<p>Rothwell produced the letter signed &quot;B&quot; from his pocket. &quot;Lady Beatrice, this correspondence suggests Edmund discovered something that could destroy you. Care to explain?&quot;</p>\n<p>Before she could respond, Pemberton leaned forward with sudden interest. &quot;Good heavens, that ring—I&#x27;ve seen one remarkably similar. Geoffrey Hartley wore his mother&#x27;s old ring on a chain around his neck. He showed it to me once at the club, said it was his talisman for luck.&quot; The doctor&#x27;s eyes narrowed thoughtfully. &quot;You know, Geoffrey had access to the entire gallery before the opening. He was there for hours, supposedly arranging the champagne service himself.&quot;</p>\n<p>Lady Beatrice&#x27;s hands trembled as she reached for her teacup, and Pemberton was immediately at her side. &quot;As for these letters, Inspector, I can explain what Edmund discovered. It wasn&#x27;t Lady Beatrice&#x27;s secret at all—it was Geoffrey&#x27;s embezzlement scheme.&quot; He withdrew a folded document from his jacket pocket, smoothing it across the table. &quot;Edmund confided in me weeks ago. He&#x27;d found discrepancies in the gallery&#x27;s accounts, all pointing to his brother. The &#x27;destruction&#x27; mentioned in that letter? Geoffrey stood to lose everything when Edmund planned to expose him at the gala.&quot;</p>\n<p>Rothwell studied the financial statement, noting Edmund&#x27;s handwritten annotations. Martinez stepped closer, her pen poised above her notebook.</p>\n<p>&quot;Why didn&#x27;t you come forward with this immediately after the murder?&quot; Rothwell asked.</p>\n<p>Pemberton&#x27;s expression grew somber. &quot;I wanted to be certain. But now, with this letter surfacing, the pattern becomes clear. Geoffrey had motive, means, and opportunity. The ring mechanism, the private access to the champagne—it all points to one man desperate enough to kill his own brother.&quot;</p>\n<p>---</p>", "wordCount": 413}, {"title": "Chapter 5: Suspects and Misdirection", "kind": "chapter", "navLabel": "Chapter 5", "html": "<p>The Grand Imperial Hotel&#x27;s crystal chandeliers cast a warm glow over the burgundy carpeting as Inspector Rothwell and Detective Martinez approached the maître d&#x27;s podium. The slender man in an immaculate tuxedo produced the reservation ledger with practiced efficiency, his manicured finger tracing down to the entry for that fateful evening.</p>\n<p>&quot;Ah yes, Miss Rossi&#x27;s party of two, eight o&#x27;clock reservation under the name Chen,&quot; he confirmed, though his brow furrowed slightly.</p>\n<p>Before Rothwell could press further, a waiter emerged from the kitchen—a distinguished gentleman with silver temples whom the maître d&#x27; introduced as Pierre, their most senior server.</p>\n<p>&quot;I remember Miss Rossi quite well that evening,&quot; Pierre interjected smoothly, his accent carrying a hint of French refinement. &quot;She and Mr. Chen dined for nearly three hours. I served them myself—the lady had the Dover sole, and her companion ordered our signature Wellington. They never left the table until well after ten-thirty.&quot;</p>\n<p>His certainty seemed absolute, yet Martinez noticed how Pierre&#x27;s eyes flickered toward the maître d&#x27; before continuing.</p>\n<p>&quot;In fact, I recall commenting to my colleague how devoted she seemed to her business discussion. Never once did she excuse herself, not even to powder her nose.&quot;</p>\n<p>What neither detective realized was that Pierre—whose real name was Thomas Blackwood—had abandoned his usual post at the gallery&#x27;s catering company that night to plant himself at the Grand Imperial, anticipating precisely this inquiry.</p>\n<p>As Rothwell examined the guest register, finding Mr. Chen&#x27;s signature exactly where it should be, Blackwood watched the inspector&#x27;s shoulders relax with satisfaction.</p>\n<p>&quot;Well, that certainly rules out Miss Rossi,&quot; Rothwell muttered to Martinez, snapping his notebook closed. &quot;Which brings us back to Geoffrey Hartley. No alibi, motive for days, and according to three witnesses, he was seen arguing with Edmund just hours before the murder.&quot;</p>\n<p>Martinez nodded, though something nagged at her. &quot;What about Dr. Pemberton and Ms. Devereaux? We haven&#x27;t verified their whereabouts yet.&quot;</p>\n<p>&quot;Dr. Pemberton was at a medical conference in Brighton—I confirmed it myself this morning. Charlotte Devereaux was photographed at a charity gala across town.&quot; Rothwell&#x27;s jaw tightened. &quot;Geoffrey had opportunity and means. We need to bring him in for formal questioning.&quot;</p>\n<p>Behind them, Thomas Blackwood returned to the kitchen, already reaching for his phone to inform the others that the misdirection had worked perfectly.</p>\n<p>---</p>", "wordCount": 427}, {"title": "Chapter 6: Closing In", "kind": "chapter", "navLabel": "Chapter 6", "html": "<p>Inspector Rothwell leaned forward in the gallery&#x27;s cramped security office, his eyes fixed on the grainy footage as Vivienne Ashford and Edmund Hartley appeared on screen. The timestamp read 6:47 PM—thirty minutes before the fatal toast.</p>\n<p>&quot;Look at her hand,&quot; Rothwell muttered. &quot;She&#x27;s wearing something that catches the light.&quot;</p>\n<p>Martinez paused the frame, but the resolution blurred the details. What struck Rothwell more was the final moment: Edmund&#x27;s face twisted with triumph rather than anger as he turned to leave, while Vivienne remained motionless, staring at the closed door for forty-three seconds afterward.</p>\n<p>&quot;The assistant says she heard shouting,&quot; Martinez reported, flipping through her notes. &quot;Specifically, Edmund saying something about &#x27;Geoffrey&#x27;s debts&#x27; and &#x27;blood money.&#x27; The junior curator heard him threaten to &#x27;expose everything before the night is over.&#x27;&quot;</p>\n<p>Rothwell&#x27;s jaw tightened. The phone records revealed something more damning: Geoffrey Hartley had called his brother&#x27;s mobile at 6:52 PM—just minutes after Edmund left Vivienne&#x27;s office. The call lasted eighteen seconds. At 7:03 PM, Geoffrey received an incoming call from an unlisted number near the gallery.</p>\n<p>&quot;Could be Dr. Pemberton,&quot; Martinez said. &quot;Charlotte Devereaux and Thomas Blackwood both place him at the gallery around that time.&quot;</p>\n<p>&quot;All three of them conveniently corroborating Geoffrey&#x27;s movements.&quot; Rothwell stood, pacing the narrow office. &quot;And all three with their own reasons to want Edmund silenced.&quot;</p>\n<p>They found Geoffrey&#x27;s financial records spread across Rothwell&#x27;s desk that evening—a litany of debts, desperate transfers, accounts drained to nothing. Edmund had been the trustee of the family estate. Edmund had controlled everything.</p>\n<p>&quot;Motive, means, opportunity,&quot; Martinez said quietly. &quot;Geoffrey had all three.&quot;</p>\n<p>&quot;The champagne glass was clean,&quot; Rothwell countered, but his voice lacked conviction. &quot;No residue, no trace.&quot;</p>\n<p>&quot;Arsenic trioxide dissolves completely. The toxicology report confirmed it.&quot;</p>\n<p>Rothwell stared at Geoffrey&#x27;s photograph clipped to the case file—a haunted face, eyes hollow with grief or guilt. Everything pointed toward him. The evidence converged like shadows at dusk, forming a shape that seemed undeniable.</p>\n<p>Yet something nagged at him. That hand on the security footage. Vivienne&#x27;s protective curl of fingers.</p>\n<p>&quot;Bring Geoffrey in tomorrow,&quot; he said finally. &quot;Let&#x27;s see what he has to say about that phone call.&quot;</p>\n<p>---</p>", "wordCount": 427}, {"title": "Chapter 7: Closing In", "kind": "chapter", "navLabel": "Chapter 7", "html": "<p>Inspector Rothwell had barely crossed the threshold of the laboratory when his phone buzzed with an urgent message from Martinez. The confrontation with Dr. Pemberton had taken an unexpected turn. When Rothwell arrived at the medical examiner&#x27;s office twenty minutes later, he found his partner in heated discussion with a third party—Thomas Blackwood, the gallery&#x27;s insurance assessor, who had apparently arrived moments after Martinez began questioning Pemberton.</p>\n<p>&quot;Inspector Rothwell, thank goodness you&#x27;re here,&quot; Blackwood said smoothly, his silver cufflinks catching the fluorescent light as he gestured with practiced concern. &quot;I&#x27;ve been explaining to Detective Martinez that I have information that might be relevant to your investigation. You see, I was reviewing the gallery&#x27;s security protocols after Edmund&#x27;s tragic death, and I discovered something rather disturbing.&quot;</p>\n<p>He produced a leather portfolio, extracting several printed emails with a theatrical flourish. &quot;Geoffrey Hartley had been pressuring Edmund for months about changing the beneficiary on a substantial life insurance policy. These emails show Geoffrey became quite... aggressive when Edmund refused.&quot;</p>\n<p>Rothwell studied the correspondence, his jaw tightening as he noted the dates and increasingly desperate tone. The final email, sent mere days before the gala, contained language that could only be described as threatening.</p>\n<p>&quot;And here&#x27;s the troubling part,&quot; Blackwood continued, his voice dropping to a confidential murmur. &quot;I witnessed Geoffrey in the storage area near the champagne service station just before the toast. At the time, I thought nothing of it, but given Dr. Pemberton&#x27;s findings about the suspicious nature of Edmund&#x27;s collapse...&quot; He trailed off meaningfully.</p>\n<p>Martinez shifted uncomfortably. &quot;Mr. Blackwood arrived just as Dr. Pemberton was explaining the toxicology concerns.&quot;</p>\n<p>&quot;Quite fortuitous timing,&quot; Rothwell observed, watching Blackwood&#x27;s expression remain perfectly neutral.</p>\n<p>&quot;I understand you&#x27;ve been looking into Mrs. Ashford&#x27;s conversation with Edmund that evening,&quot; Blackwood added. &quot;I was there, Inspector—I can assure you it was merely about a disputed Modigliani authentication. Heated, certainly, but hardly murderous. Geoffrey, however...&quot; He tapped the emails significantly. &quot;Follow the money, as they say.&quot;</p>\n<p>Rothwell folded the documents carefully, the net around Geoffrey Hartley drawing tighter with each revelation.</p>\n<p>---</p>", "wordCount": 389}, {"title": "Chapter 8: Building the False Case", "kind": "chapter", "navLabel": "Chapter 8", "html": "<p>The evidence bag hung between them like a pronouncement, the charred manifest fragment casting shadows across Rothwell&#x27;s desk. Martinez adjusted the lamp, her face tight with concentration as the inspector&#x27;s finger traced the singed margin.</p>\n<p>&quot;G.H. - usual arrangement - 15%.&quot; The handwriting was unmistakable—Edmund&#x27;s own hand, documenting his brother&#x27;s betrayal.</p>\n<p>&quot;Three weeks before the murder,&quot; Martinez said quietly. &quot;Edmund knew.&quot;</p>\n<p>Rothwell lifted the bag to the light. The Belgian supplier&#x27;s name—Rousseau et Fils—matched the correspondence they&#x27;d found locked in Edmund&#x27;s desk drawer. <em>Concerns about Geoffrey&#x27;s judgment. Protecting the family legacy.</em> The words had seemed like fraternal worry then. Now they read like an indictment.</p>\n<p>&quot;Geoffrey had sole authority over international acquisitions,&quot; Martinez continued, her notebook open. &quot;And that Brussels address appeared in last year&#x27;s art fraud bulletin.&quot;</p>\n<p>The speakerphone crackled to life. &quot;Inspector? Interpol returning your call.&quot; The liaison&#x27;s voice carried across the Atlantic with damning clarity. &quot;Rousseau et Fils—investigated eighteen months ago for inflated invoices. The extra money purchased forgeries to replace originals.&quot;</p>\n<p>Rothwell&#x27;s jaw tightened. &quot;British galleries implicated?&quot;</p>\n<p>&quot;Nothing proven. But Geoffrey Hartley&#x27;s name surfaced in preliminary interviews. Multiple trips to Brussels, claimed he was sourcing materials.&quot;</p>\n<p>Martinez was already pulling up travel records, her laptop screen reflecting in her dark eyes. &quot;James.&quot; She turned the screen toward him. &quot;Twenty liters of refined linseed oil, specialty pigments—supplies that never appear in Edmund&#x27;s official ledgers. But Geoffrey&#x27;s studio account shows a cash withdrawal matching this exact amount.&quot;</p>\n<p>&quot;When?&quot;</p>\n<p>&quot;Three weeks before the murder.&quot; She clicked to another window. &quot;Security logs show Geoffrey accessed the furnace room twice after Edmund&#x27;s death. Told the guard he was disposing of damaged canvases.&quot;</p>\n<p>Rothwell stood, the evidence bag still dangling from his fingers. Someone had fed this manifest to the flames in panic, trying to eliminate proof of fraud. If Edmund had confronted Geoffrey that night, discovered the scheme during the gala—</p>\n<p>Yet the hollow ring haunted him. Too delicate, too precise.</p>\n<p>&quot;Bring Geoffrey Hartley in,&quot; he said finally. &quot;It&#x27;s time he explained himself.&quot;</p>\n<p>---</p>", "wordCount": 400}, {"title": "Chapter 9: Building the False Case", "kind": "chapter", "navLabel": "Chapter 9", "html": "<p>Inspector Rothwell strode through the sterile corridors of the Home Office morgue, the forensic report burning in his coat pocket like a live coal. The scopolamine discovery had opened a new dimension to Edmund Hartley&#x27;s murder—premeditation of the coldest variety. As he pushed through the autopsy suite&#x27;s double doors, he found not only the pathologist but Dr. Marcus Pemberton standing beside the examination table, his distinguished frame draped in a visitor&#x27;s gown, his expression grave with professional concern.</p>\n<p>&quot;Inspector,&quot; Pemberton began before Rothwell could speak, his voice carrying that particular authority reserved for Harley Street physicians. &quot;I took the liberty of reviewing the preliminary toxicology at the coroner&#x27;s request—Edmund was my patient for fifteen years, after all. This scopolamine finding troubles me deeply, but I feel obligated to share something.&quot; He paused, producing a leather-bound appointment diary. &quot;Three weeks ago, Vivienne Ashford came to my consulting rooms complaining of severe migraines. She mentioned, quite casually, that Edmund had been behaving erratically, paranoid even. She wondered if stress might be affecting his judgment about the gallery&#x27;s finances. At the time, I thought she was simply being a concerned business partner.&quot; Pemberton&#x27;s fingers traced the diary entry with practiced precision. &quot;But now I wonder—was she establishing a narrative? Planting seeds that Edmund was mentally unstable, perhaps to explain away any concerning behavior witnesses might report?&quot;</p>\n<p>Rothwell felt the familiar electric charge of a breakthrough, his mind already racing toward Vivienne Ashford&#x27;s calculated misdirection, when Pemberton added quietly, &quot;Of course, she also mentioned that Geoffrey had been pressuring Edmund terribly about selling the gallery to cover gambling debts. She showed me threatening letters Geoffrey had sent—I saw them myself, Inspector.&quot;</p>\n<p>The words shifted something in Rothwell&#x27;s chest. &quot;Letters?&quot;</p>\n<p>&quot;Quite explicit ones. Demanding money, making veiled threats about &#x27;consequences&#x27; if Edmund didn&#x27;t help him.&quot; Pemberton removed his gown with careful movements. &quot;I dismissed them at the time—family squabbles, you understand. But in light of recent events...&quot;</p>\n<p>By afternoon, Rothwell had relocated their conversation to the station, where Martinez waited with the Belgian shipping manifests. The interview room smelled of stale coffee and desperation as Rothwell leaned back in his chair, studying Pemberton&#x27;s composed features across the scarred table.</p>\n<p>&quot;Your pharmaceutical expertise makes you invaluable to this investigation, Doctor,&quot; Rothwell said carefully. &quot;We know someone with medical knowledge had to coordinate Edmund Hartley&#x27;s poisoning. The arsenic trioxide, the precise dosage—this wasn&#x27;t amateur work.&quot; He paused, letting the weight settle. &quot;Here&#x27;s what I&#x27;m offering: full testimony about who planned this murder, and you walk away with accessory charges. Otherwise, you&#x27;re looking at conspiracy to commit murder.&quot;</p>\n<p>Dr. Pemberton&#x27;s composed features finally cracked, just for an instant. He reached for his water glass with fingers that trembled almost imperceptibly.</p>\n<p>&quot;I&#x27;ll need to consult counsel before I say anything further, Inspector.&quot;</p>\n<p>Rothwell nodded, satisfied. The thread would unravel; it was only a matter of time. But his own unease lingered—Pemberton&#x27;s hesitation felt less like the calculation of a guilty man and more like the weary acceptance of one who had been anticipating this moment. Someone further up the chain had planned for this possibility too.</p>\n<p>---</p>", "wordCount": 587}, {"title": "Chapter 10: Building the False Case", "kind": "chapter", "navLabel": "Chapter 10", "html": "<p>The leather-bound ledger felt heavy in Rothwell&#x27;s hands, its gold-embossed initials catching the afternoon light slanting through Edmund Hartley&#x27;s study. He&#x27;d found it wedged beneath auction catalogs, as though hastily concealed. The pages revealed meticulous records of artwork acquisitions, each entry in Edmund&#x27;s precise script—until the red ink appeared.</p>\n<p>&quot;Look at this,&quot; Martinez said, leaning over his shoulder. Her finger traced a column of crimson notations. &quot;Every red entry has secondary figures in the margin. Initials &#x27;G.H.&#x27; with amounts that don&#x27;t match the official purchase prices.&quot;</p>\n<p>Rothwell&#x27;s jaw tightened as he followed the pattern. Geoffrey Hartley&#x27;s initials appeared again and again, always alongside inflated figures suggesting substantial overcharges. The most recent entry, dated three days before Edmund&#x27;s death, stopped him cold: a disputed Rembrandt sketch with a notation in Edmund&#x27;s agitated handwriting—<em>G.H.—confront immediately regarding Belgian discrepancies. Cannot continue.</em></p>\n<p>&quot;Geoffrey had access to the gallery&#x27;s purchasing accounts,&quot; Rothwell said quietly. &quot;If Edmund discovered his brother was skimming funds through fraudulent invoicing...&quot;</p>\n<p>Martinez was already photographing the pages, her camera flash illuminating what appeared to be an unambiguous motive.</p>\n<p>---</p>\n<p>Back at the precinct, Rothwell spread the telegram copies across his desk. The Brussels clerk had confirmed: paid in cash, sender listed only as &quot;V. Durant.&quot; Dr. Helena Frost from the Metropolitan Museum arrived within the hour, her sharp eyes immediately drawn to photographs of the contested Rembrandt.</p>\n<p>&quot;If someone possessed proof this painting was fraudulent,&quot; she explained, adjusting her spectacles, &quot;the financial implications would be catastrophic. But more intriguing—the sender claims to have proof of <em>authenticity</em>, not forgery. That suggests someone wanted Edmund to proceed despite his concerns.&quot;</p>\n<p>Martinez pulled out Geoffrey&#x27;s travel documents. &quot;He was in Belgium three weeks ago. The dates align perfectly.&quot;</p>\n<p>Rothwell retrieved the ornate ring from evidence, turning it slowly under his lamp. The hollow compartment caught the light—small enough to overlook, sophisticated enough to be deliberate.</p>\n<p>&quot;Dr. Frost, would a Belgian art supplier authenticate a Rembrandt?&quot;</p>\n<p>Her brow furrowed. &quot;Absolutely not. Unless the &#x27;supplier&#x27; was actually a forger ensuring his work would pass inspection.&quot;</p>\n<p>Rothwell set down the ring, the weight of Geoffrey Hartley&#x27;s guilt settling over him like a shroud.</p>\n<p>---</p>", "wordCount": 412}, {"title": "Chapter 11: Building the False Case", "kind": "chapter", "navLabel": "Chapter 11", "html": "<p>The dawn raid had been meticulously planned, but as Inspector Rothwell approached the townhouse of Charlotte Devereaux at half-past five, he found her already awake, dressed immaculately in dove-grey silk, calmly arranging white roses in a crystal vase. She turned with practiced surprise as Martinez announced their presence, her hand fluttering to her throat in a gesture of delicate concern.</p>\n<p>&quot;Inspector, how fortuitous—I was just about to telephone the station,&quot; she said, her voice trembling with what seemed like barely contained urgency. &quot;I&#x27;ve been awake all night, tormented by conscience. That ring you found, the one with the hollow compartment... I saw Geoffrey handling it the evening before the gallery opening. I thought nothing of it at the time, assumed it was a gift for his wife perhaps, but now...&quot; She moved to her writing desk, retrieving a handkerchief-wrapped bundle with theatrical reluctance. &quot;I found this hidden in the gallery&#x27;s storage room yesterday—a jeweler&#x27;s receipt in Geoffrey&#x27;s name for modifications to a ladies&#x27; ring, dated three weeks before Edmund&#x27;s death. The specifications mention a &#x27;concealed interior mechanism.&#x27;&quot;</p>\n<p>Her eyes glistened as she pressed the paper into Rothwell&#x27;s hands. &quot;I know Vivienne has been helping with the investigation, sharing gallery records and such, but Inspector, you must understand—Geoffrey had the most to gain from his brother&#x27;s death. The inheritance, the gallery directorship, everything. Vivienne was merely Edmund&#x27;s business partner; she had nothing to gain and everything to lose.&quot;</p>\n<p>Rothwell studied the receipt, his jaw tightening as he noticed the jeweler&#x27;s stamp and Geoffrey&#x27;s apparent signature. Martinez caught his eye, nodding toward the door—the other teams would be moving into position at the remaining locations.</p>\n<p>&quot;Miss Devereaux, you&#x27;ll need to come with us to provide a formal statement,&quot; Rothwell said, folding the receipt carefully. The weight of it seemed to settle something in his chest—a final piece clicking into place.</p>\n<p>As they descended the townhouse steps, Martinez leaned close. &quot;Dr. Pemberton confirmed the arsenic trioxide concentration matches the hollow ring&#x27;s capacity exactly. And Blackwood&#x27;s testimony about Geoffrey&#x27;s financial desperation...&quot;</p>\n<p>&quot;I know,&quot; Rothwell interrupted quietly, watching the grey morning light spread across the cobblestones. &quot;God help me, Martinez, but I think we have him.&quot;</p>\n<p>---</p>", "wordCount": 416}, {"title": "The Resolution", "kind": "resolution", "navLabel": "Resolution", "html": "<p>Inspector Rothwell stood before the assembled household, his voice carrying the weight of certainty. &quot;After three days of exhaustive investigation, I can now reveal the truth behind Edmund Hartley&#x27;s murder.&quot;</p>\n<p>He gestured to the evidence table. &quot;The champagne flute contained traces of arsenic trioxide. Edmund&#x27;s personal correspondence reveals mounting tensions with his younger brother Geoffrey over the family estate. Most damning—this ledger, recovered from Geoffrey&#x27;s study, shows debts exceeding thirty thousand pounds. Debts that would vanish entirely upon inheriting Edmund&#x27;s fortune.&quot;</p>\n<p>Murmurs rippled through the drawing room.</p>\n<p>&quot;Naturally, we examined all possibilities.&quot; Rothwell paced deliberately. &quot;Lady Beatrice Worthington was at her Kensington residence during the fatal toast, the household staff providing consistent testimony. Gregory Sutherland had departed his gentlemen&#x27;s club at half-past nine and caught the last train to London—the steward and stationmaster both confirmed. Isabella Rossi dined at the Grand Imperial Hotel until well past ten-thirty, the maître d&#x27; and senior waiter attesting to it. And Arthur Fenwick?&quot; He paused. &quot;Mr. Fenwick&#x27;s severe gout prevented him from even attending the gathering that night.&quot;</p>\n<p>Rothwell&#x27;s eyes swept the room, landing briefly on Vivienne Ashford&#x27;s composed face before moving to Geoffrey.</p>\n<p>&quot;Here is what I believe happened that night. Geoffrey arrived early, slipping arsenic into his brother&#x27;s designated champagne flute—the one with the distinctive gold rim Edmund always requested. He positioned himself strategically during the toast, ensuring he appeared distant from the victim when the poison took effect. The substance acts quickly but not instantaneously, providing crucial separation between administration and collapse. Geoffrey feigned shock admirably, even summoning Dr. Pemberton himself, knowing the damage was irreversible. A calculated performance designed to establish innocence.&quot;</p>\n<p>&quot;That&#x27;s preposterous!&quot; Geoffrey surged forward, his face flushed crimson. &quot;I loved my brother! Those debts were temporary—Edmund was <em>helping</em> me resolve them!&quot;</p>\n<p>&quot;Then explain the ledger. Explain why you concealed your financial ruin from everyone, including your brother&#x27;s solicitor.&quot;</p>\n<p>&quot;I concealed nothing! I—&quot;</p>\n<p>&quot;Geoffrey Hartley,&quot; Rothwell interrupted, his voice steel, &quot;I am placing you under arrest for the murder of Edmund Hartley. Constable Morris, if you please.&quot;</p>\n<p>As the constable stepped forward with handcuffs, Geoffrey&#x27;s protests grew desperate. &quot;This is madness! Inspector, you&#x27;re making a terrible mistake! The real killer—&quot;</p>\n<p>&quot;Will face justice,&quot; Rothwell finished coldly. &quot;Take him away.&quot;</p>\n<p>The room erupted in shocked whispers as Geoffrey was led toward the door, still proclaiming his innocence. Near the window, Vivienne Ashford remained perfectly still, one hand resting gracefully against the curtain. Her expression conveyed appropriate distress—widened eyes, a hand pressed delicately to her throat. When her gaze met the Inspector&#x27;s, she offered the faintest nod of approval, as if commending his thoroughness.</p>\n<p>The hollow ring on her finger caught the afternoon light, its innocent gleam revealing nothing of its ingenious mechanism.</p>\n<p>As the door closed behind Geoffrey&#x27;s retreating form, Vivienne finally permitted herself the ghost of a smile.</p>\n<p>---</p>", "wordCount": 538}, {"title": "Epilogue", "kind": "epilogue", "navLabel": "Epilogue", "html": "<p>Geoffrey Hartley&#x27;s protests echoed through the Hartley residence&#x27;s marble halls as the constables led him away in irons. Detective Inspector Rothwell watched from the doorway, turning his silver pen between his fingers—the same pen he&#x27;d used to sign the arrest warrant. Something about the crime scene bothered him still, the way the hearth flute had been smashed while a second, untouched flute stood on the sideboard, but the evidence against Geoffrey was overwhelming. The case was closed.</p>\n<p>Vivienne stood at the drawing room window, her reflection ghostly in the rain-streaked glass. In her mind, she replayed it all: the hollow ring clicking open as she raised her glass, Edmund&#x27;s trusting smile during the toast, the arsenic trioxide dissolving invisibly into golden bubbles. He&#x27;d discovered her forgeries—Caravaggios, Vermeers, masterworks she&#x27;d created and sold through Europe&#x27;s finest auction houses. Her half-brother—righteous Edmund, the only one of their mother&#x27;s children born to the Hartley name and the Hartley wealth—had threatened to destroy everything she&#x27;d built.</p>\n<p>The conspirators had each played their part perfectly. Dr. Pemberton had provided the poison and falsified the autopsy timeline. Charlotte Devereaux, her dearest friend, had created the alibi—those fabricated witnesses placing Vivienne in London when she&#x27;d never left Mayfair. Charlotte had also produced the jeweler&#x27;s receipt that pinned the modified ring on Geoffrey, while Thomas Blackwood had supplied the threatening letters that sealed it. They&#x27;d all profited from her forgeries; their silence was guaranteed by shared guilt.</p>\n<p>Vivienne&#x27;s hand rose absently to the bare indent on her finger where the ring had once sat—now catalogued in Inspector Rothwell&#x27;s evidence locker, its inner chamber wiped clean hours before the police arrived, its provenance traced neatly back to a Hartley heirloom Geoffrey alone had access to. The most incriminating piece of evidence in the case was hers, and it was pointing at someone else.</p>\n<p>Across the room, young Margaret, the housemaid, collected abandoned teacups with trembling hands. She&#x27;d been polishing silver in the butler&#x27;s pantry during the toast, had seen through the crack in the door—Miss Vivienne&#x27;s hand positioned so strangely, that odd clicking sound, the deliberate way she&#x27;d clinked glasses. But who would believe a housemaid over an Ashford?</p>\n<p>Margaret set down the tray and fled upstairs, knowing she would say nothing.</p>\n<p>Outside, rain fell on the gravel drive where Geoffrey&#x27;s last footprints were slowly washing away.</p>", "wordCount": 435}];
+const EVIDENCE_UNLOCKS = [{"label": "Gold hollow ring with flower engraving", "unlockedAfter": "Chapter 1"}, {"label": "Ring's hidden arsenic chamber", "unlockedAfter": "Chapter 2"}, {"label": "Sutherland's gentlemen's-club ledger", "unlockedAfter": "Chapter 3"}, {"label": "Lady Beatrice's letter signed 'B'", "unlockedAfter": "Chapter 4"}, {"label": "Isabella Rossi's Grand Imperial alibi", "unlockedAfter": "Chapter 5"}, {"label": "Phone records: Geoffrey's 6:52 PM call", "unlockedAfter": "Chapter 6"}, {"label": "Blackwood's threatening-email dossier", "unlockedAfter": "Chapter 7"}, {"label": "Burned Belgian shipping manifest", "unlockedAfter": "Chapter 8"}, {"label": "Scopolamine toxicology finding", "unlockedAfter": "Chapter 9"}, {"label": "Red-ink ledger: 'G.H. - usual arrangement - 15%'", "unlockedAfter": "Chapter 10"}, {"label": "Jeweler's receipt 'discovered' by Charlotte", "unlockedAfter": "Chapter 11"}];
+const SUSPECTS = [{"id": "geoffrey", "name": "Geoffrey Hartley"}, {"id": "pemberton", "name": "Dr. Marcus Pemberton"}, {"id": "vivienne", "name": "Vivienne Ashford"}, {"id": "charlotte", "name": "Charlotte Devereaux"}, {"id": "blackwood", "name": "Thomas Blackwood"}];
+const CORRECT_SUSPECT_ID = "vivienne";
+
+const STORAGE_KEY = "hartley_affair_progress_v1";
+
+function loadProgress() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {read: [], guess: null, unlocked: false};
+  } catch (e) {
+    return {read: [], guess: null, unlocked: false};
+  }
+}
+function saveProgress(p) { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }
+
+let state = loadProgress();
+let currentIdx = 0;
+
+// First visible index is always Chapter 1 if locked sections hidden
+const firstVisibleIdx = SECTIONS.findIndex(s => s.kind === "chapter");
+
+function isLocked(section) {
+  if (section.kind === "chapter") return false;
+  return !state.unlocked;
+}
+
+function chapterCount() {
+  return SECTIONS.filter(s => s.kind === "chapter").length;
+}
+
+function renderToc() {
+  const ol = document.getElementById("toc");
+  ol.innerHTML = "";
+  SECTIONS.forEach((sec, i) => {
+    const li = document.createElement("li");
+    li.textContent = sec.navLabel;
+    if (state.read.includes(i)) li.classList.add("read");
+    if (isLocked(sec)) li.classList.add("locked");
+    if (i === currentIdx) li.classList.add("active");
+    li.addEventListener("click", () => {
+      if (isLocked(sec)) return;
+      showSection(i);
+    });
+    ol.appendChild(li);
+  });
+  document.getElementById("read-count").textContent = state.read.filter(i => SECTIONS[i] && SECTIONS[i].kind === "chapter").length;
+  document.getElementById("chapter-total").textContent = chapterCount();
+}
+
+function renderEvidence() {
+  const ul = document.getElementById("evidence");
+  ul.innerHTML = "";
+  EVIDENCE_UNLOCKS.forEach(ev => {
+    const li = document.createElement("li");
+    li.textContent = ev.label;
+    const unlockAt = SECTIONS.findIndex(s => s.navLabel === ev.unlockedAfter);
+    if (unlockAt !== -1 && state.read.includes(unlockAt)) {
+      li.classList.add("discovered");
+    }
+    ul.appendChild(li);
+  });
+  const sl = document.getElementById("suspect-list");
+  sl.innerHTML = "";
+  SUSPECTS.forEach(s => {
+    const li = document.createElement("li");
+    li.textContent = s.name;
+    if (state.guess && state.unlocked && s.id === CORRECT_SUSPECT_ID) li.classList.add("discovered");
+    sl.appendChild(li);
+  });
+}
+
+function showSection(i) {
+  currentIdx = i;
+  const sec = SECTIONS[i];
+  const reader = document.getElementById("reader");
+  reader.innerHTML = `<h2>${sec.title}</h2>
+    <p class="ch-meta">${sec.navLabel}${sec.wordCount ? ' &middot; ' + sec.wordCount + ' words' : ''}</p>
+    ${sec.html}`;
+  reader.scrollTop = 0;
+  document.querySelector("main").scrollTop = 0;
+  // Mark as read
+  if (sec.kind === "chapter" && !state.read.includes(i)) {
+    state.read.push(i);
+    saveProgress(state);
+  }
+  renderToc();
+  renderEvidence();
+  updateControls();
+  updateGuessVisibility();
+}
+
+function updateControls() {
+  const prev = document.getElementById("prev-btn");
+  const next = document.getElementById("next-btn");
+  // Allow prev/next to step only among unlocked sections.
+  const order = SECTIONS.map((s, i) => [s, i]).filter(([s]) => !isLocked(s)).map(([, i]) => i);
+  const pos = order.indexOf(currentIdx);
+  prev.disabled = pos <= 0;
+  next.disabled = pos >= order.length - 1;
+  prev.onclick = () => { if (pos > 0) showSection(order[pos - 1]); };
+  next.onclick = () => { if (pos < order.length - 1) showSection(order[pos + 1]); };
+}
+
+function updateGuessVisibility() {
+  const guess = document.getElementById("guess");
+  const readChapters = state.read.filter(i => SECTIONS[i] && SECTIONS[i].kind === "chapter").length;
+  const allRead = readChapters >= chapterCount();
+  if (allRead && !state.unlocked) {
+    guess.classList.remove("hidden");
+  } else {
+    guess.classList.add("hidden");
+  }
+}
+
+function renderGuessGrid() {
+  const grid = document.getElementById("suspect-grid");
+  grid.innerHTML = "";
+  SUSPECTS.forEach(s => {
+    const btn = document.createElement("button");
+    btn.textContent = s.name;
+    btn.dataset.id = s.id;
+    btn.addEventListener("click", () => handleGuess(s));
+    grid.appendChild(btn);
+  });
+}
+
+function handleGuess(suspect) {
+  if (state.unlocked) return;
+  state.guess = suspect.id;
+  state.unlocked = true;
+  saveProgress(state);
+  const correct = suspect.id === CORRECT_SUSPECT_ID;
+  const grid = document.getElementById("suspect-grid");
+  Array.from(grid.children).forEach(btn => {
+    btn.disabled = true;
+    if (btn.dataset.id === suspect.id) {
+      btn.classList.add("chosen");
+      btn.classList.add(correct ? "correct" : "wrong");
+    }
+  });
+  const result = document.getElementById("guess-result");
+  if (correct) {
+    result.className = "shown correct";
+    result.innerHTML = `<strong>Correct.</strong> Vivienne Ashford poisoned Edmund Hartley. The hollow ring, the staged toast, the three conspirators &mdash; you pieced it together. The Resolution and Epilogue are now unlocked in the chapter list.`;
+  } else {
+    result.className = "shown wrong";
+    result.innerHTML = `<strong>Not quite.</strong> You accused ${suspect.name}. Read the Resolution and Epilogue to see what actually happened the night of the toast. They are now unlocked in the chapter list.`;
+  }
+  renderToc();
+  renderEvidence();
+  updateControls();
+}
+
+document.getElementById("reset-btn").addEventListener("click", () => {
+  if (!confirm("Reset reading progress and guess?")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  state = loadProgress();
+  currentIdx = firstVisibleIdx;
+  document.getElementById("guess-result").className = "";
+  document.getElementById("guess-result").innerHTML = "";
+  renderGuessGrid();
+  updateGuessVisibility();
+  showSection(currentIdx);
+});
+
+// Initial render.
+renderGuessGrid();
+currentIdx = firstVisibleIdx;
+showSection(currentIdx);
+</script>
+</body>
+</html>
