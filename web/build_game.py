@@ -1414,8 +1414,38 @@ function handleAccuse(target) {
   }
   if (c.id === DATA.real_criminal_id) {
     state.gameOver = true;
-    addLog("You name " + c.name + " as the poisoner of " + DATA.victim_name + ". The hollow ring, the staged toast, the conspirators — you lay it all out. The room falls silent. The case is solved.", "victory", "THE CASE IS CLOSED");
-    addLog("You have won. (Open the [novel version](./index.html) for the full narrative.)", "system");
+    addLog(
+      "You lay the hollow ring on the evidence table with deliberate care. " +
+      "Dr. Pemberton — broken in the interrogation hours earlier — has already " +
+      "given you the skeleton of the account. Charlotte Devereaux's fingerprints " +
+      "on the planted jeweler's receipt do the rest. You turn to " + c.name +
+      " and read the warrant aloud: the gallery owner, the half-sister, the " +
+      "poisoner. Her face composes itself into that flawless marble calm that " +
+      "has served her so well for so long. It does not survive the click of the " +
+      "handcuffs.",
+      "victory",
+      "— THE CASE IS CLOSED —"
+    );
+    addLog(
+      "Outside, fog rises off the Thames in slow, indifferent ribbons. In the " +
+      "butler's pantry of the Ashford townhouse, a housemaid named Margaret " +
+      "grips a silver tray until her knuckles whiten — she had watched the " +
+      "mechanism click through a sliver of doorway on the night of the toast, " +
+      "and told no one. Now that the arrest is done, she will not need to. You " +
+      "step out into the grey dawn with Detective Martinez at your shoulder, " +
+      "the case file heavy in your coat, and listen to the constable's whistle " +
+      "fading up the square.",
+      "narration",
+      "— the loose end —"
+    );
+    addLog(
+      "Justice comes fitfully in this city — most often late, and never entire. " +
+      "But tonight, at least, it has come for " + DATA.victim_name + ". " +
+      "The Hartley Affair is closed.",
+      "narration",
+      "— coda —"
+    );
+    addLog("Case record closed. Press Reset to begin a new investigation.", "system");
   } else {
     addLog("You accuse " + c.name + " — but the evidence doesn't hold up under scrutiny. A wrongful arrest is a mark on your record, and the real killer may go free. Consider what other leads you haven't chased.", "exception");
   }
