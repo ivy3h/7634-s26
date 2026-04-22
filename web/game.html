@@ -867,12 +867,17 @@ function executeEvent(ev) {
     }
   });
   // Apply reveals: mark evidence discovered (dedup via note()).
-  (ev.reveals || []).forEach(eid => {
+  // Some events in plan.json list reveals with the full 'evidence.E007' id,
+  // others use just 'E007'. Normalize so both forms resolve to the same
+  // entry in DATA.evidence.
+  (ev.reveals || []).forEach(raw => {
+    const rawStr = String(raw);
+    const eid = rawStr.startsWith("evidence.") ? rawStr : "evidence." + rawStr;
     if (!state.evidenceFlags[eid]) state.evidenceFlags[eid] = {};
     state.evidenceFlags[eid].discovered = true;
     const e = DATA.evidence[eid];
     if (e) note("Evidence: " + truncate(e.description, 60));
-    else   note("Lead: " + eid);
+    else   note("Lead: " + eid.replace(/^evidence\./, ""));
   });
   if (ev.verb === "analyze") {
     (ev.args || []).forEach(a => {
