@@ -1027,6 +1027,11 @@ function _extractPersonLike(s) {
   return n ? n[0] : null;
 }
 
+function note(entry) {
+  // Deduplicate: same line never appears twice in the notebook.
+  if (!state.knowledge.includes(entry)) state.knowledge.push(entry);
+}
+
 function executeEvent(ev) {
   state.executedEvents.push(ev.id);
   const socialVerbs = new Set(["interview","consult","confront","question","visit"]);
@@ -1036,22 +1041,22 @@ function executeEvent(ev) {
       encounter(asStr);
       if (socialVerbs.has(ev.verb)) {
         const c = DATA.characters[asStr];
-        if (c) state.knowledge.push("Spoke with — " + c.name);
+        if (c) note("Spoke with — " + c.name);
       }
     } else if (socialVerbs.has(ev.verb)) {
       // Free-string arg referencing a person off the main character list
       // (e.g. an off-screen consultant like Dr. Helena Frost).
       const name = _extractPersonLike(asStr);
-      if (name) state.knowledge.push("Consulted — " + name);
+      if (name) note("Consulted — " + name);
     }
   });
-  // Apply reveals: mark evidence discovered
+  // Apply reveals: mark evidence discovered (dedup via note()).
   (ev.reveals || []).forEach(eid => {
     if (!state.evidenceFlags[eid]) state.evidenceFlags[eid] = {};
     state.evidenceFlags[eid].discovered = true;
     const e = DATA.evidence[eid];
-    if (e) state.knowledge.push("Evidence surfaced: " + truncate(e.description, 60));
-    else   state.knowledge.push("Lead surfaced: " + eid);
+    if (e) note("Evidence: " + truncate(e.description, 60));
+    else   note("Lead: " + eid);
   });
   if (ev.verb === "analyze") {
     (ev.args || []).forEach(a => {
