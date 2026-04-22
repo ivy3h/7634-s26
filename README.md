@@ -52,28 +52,6 @@ Covers install + smoke test + `main.py build` + `main.py assemble` + the two scr
 
 A successful output example is available in [`data/final_story.md`](data/final_story.md). The plot-point breakdown that drives it is in [`data/plot_points.json`](data/plot_points.json).
 
-The matching interactive playthrough lives in the logs:
-
-| Artifact | What it shows |
-|---|---|
-| [`transcripts/success_run.txt`](transcripts/success_run.txt) | 21-turn script that solves the crime |
-| [`logs/turns_success.jsonl`](logs/turns_success.jsonl) | one line per turn — raw input, parsed action, classification, effects applied, narration |
-| [`logs/drama_success.jsonl`](logs/drama_success.jsonl) | every drama-manager decision from that run |
-
-In this run the detective (Inspector James Whitaker) correctly identifies Eleanor Voss as the poisoner of Lord Reginald Whitmore. The goal predicate becomes satisfied at turn 21 (`accuse victoria harrington` → cross-referenced evidence + identification both present in `detective.knowledge`), and the engine prints `>>> The case is solved. <<<`. The drama manager fired **zero accommodations** across the run — every action was classified as `constituent` or `consistent`, which is what we want for a clean path.
-
-For the complementary failure-triggering example (3 accommodations, including the canonical "smash the flute" open-action case), see [`logs/turns_exception.jsonl`](logs/turns_exception.jsonl) and [`logs/drama_exception.jsonl`](logs/drama_exception.jsonl).
-
-Model is auto-selected from GPU VRAM:
-
-| GPU | Model | Weights (bf16) |
-|---|---|---|
-| T4 (16 GB)  | `Qwen/Qwen2.5-3B-Instruct` | ~6 GB |
-| L4 (24 GB)  | `Qwen/Qwen2.5-7B-Instruct` | ~14 GB |
-| A100 (40 GB)| `Qwen/Qwen3-8B`          | ~18 GB |
-
-The notebook is self-contained — no SLURM, no external services, no Anthropic API key.
-
 ## Running on the Skynet cluster
 
 ### One-time setup
