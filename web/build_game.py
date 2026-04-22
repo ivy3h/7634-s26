@@ -559,9 +559,14 @@ aside.left .scene-desc {
     <div id="log" class="log"></div>
     <div class="hints-panel">
       <button id="hints-toggle" class="hints-toggle" type="button">💡 Stuck? Show hints</button>
+      <button id="guide-toggle" class="hints-toggle" type="button" style="margin-left:8px;">🗺️ Where next?</button>
       <div id="hints-content" class="hidden">
         <div id="hints-list" class="hints-list"></div>
         <div class="hints-note">Click a hint to pre-fill the input — you still press Enter (and can edit) to submit.</div>
+      </div>
+      <div id="guide-content" class="hidden">
+        <div id="guide-body" class="hints-note" style="color: var(--paper); padding: 6px 0 2px;"></div>
+        <div id="guide-list" class="hints-list"></div>
       </div>
     </div>
     <form class="input-bar" id="input-form">
@@ -872,6 +877,101 @@ function renderHints() {
     chip.addEventListener("click", () => prefillInput(cmd));
     list.appendChild(chip);
   });
+}
+
+function renderGuide() {
+  const body = document.getElementById("guide-body");
+  const list = document.getElementById("guide-list");
+  body.innerHTML = "";
+  list.innerHTML = "";
+
+  const totalEvents = Object.keys(DATA.events).length;
+  const done = state.executedEvents.length;
+  const pendingEvents = Object.values(DATA.events).filter(
+    ev => !state.executedEvents.includes(ev.id)
+  );
+
+  if (state.gameOver) {
+    body.textContent = "Case closed. Press Reset to start a fresh investigation.";
+    return;
+  }
+  if (pendingEvents.length === 0) {
+    body.innerHTML =
+      "You've exhausted every lead — <strong>" + done + " / " + totalEvents +
+      " plot events explored</strong>. No more investigation branches remain. " +
+      "Review your Detective's notebook, pick a suspect, and type " +
+      "<code>accuse &lt;name&gt;</code> to close the case.";
+    return;
+  }
+
+  // Find the nearest pending-event location via BFS from here.
+  function nearest(fromId) {
+    const seen = new Set([fromId]);
+    const q = [[fromId, 0, [fromId]]];
+    while (q.length) {
+      const [cur, d, path] = q.shift();
+      if (d > 0) {
+        const hasPending = pendingEvents.some(ev => ev.location === cur);
+        if (hasPending) return { id: cur, hops: d, path: path };
+      }
+      const loc2 = DATA.locations[cur];
+      if (!loc2) continue;
+      for (const adj of loc2.adjacent) {
+        if (!seen.has(adj)) {
+          seen.add(adj);
+          q.push([adj, d + 1, path.concat([adj])]);
+        }
+      }
+    }
+    return null;
+  }
+
+  const hit = nearest(state.location);
+  const pendingLocs = [...new Set(pendingEvents.map(ev => ev.location))];
+  const locNames = pendingLocs
+    .map(id => DATA.locations[id] ? DATA.locations[id].name : id)
+    .filter(Boolean);
+
+  if (hit) {
+    const target = DATA.locations[hit.id];
+    const nextStep = hit.path[1];              // first hop of the path
+    const nextName = DATA.locations[nextStep] ? DATA.locations[nextStep].name : nextStep;
+    body.innerHTML =
+      "<strong>" + done + " / " + totalEvents + " plot events explored.</strong> " +
+      pendingEvents.length + " lead" + (pendingEvents.length === 1 ? "" : "s") +
+      " still open across " + pendingLocs.length + " location" +
+      (pendingLocs.length === 1 ? "" : "s") + ". " +
+      "The nearest unfinished lead is <strong>" + target.name + "</strong> — " +
+      (hit.hops === 1 ? "directly next door." : hit.hops + " rooms away.") +
+      (hit.hops > 1 ? " Start by heading to <strong>" + nextName + "</strong>." : "");
+
+    // offer a direct go-to chip for the first hop + the final destination
+    [nextStep, hit.id].forEach(id => {
+      if (!id || !DATA.locations[id]) return;
+      const cmd = "go to " + locAlias(DATA.locations[id]);
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.innerHTML = '<span class="arrow">&gt;</span>' + cmd;
+      chip.title = "Copy to input (Enter to submit)";
+      chip.addEventListener("click", () => prefillInput(cmd));
+      list.appendChild(chip);
+    });
+  } else {
+    body.innerHTML =
+      "<strong>" + done + " / " + totalEvents + " plot events explored.</strong> " +
+      "No remaining lead is reachable from here — try another exit and come back to this guide.";
+  }
+
+  // Short overview: all locations with pending work (capped at 5)
+  if (locNames.length > 0) {
+    const overview = document.createElement("div");
+    overview.className = "hints-note";
+    overview.style.marginTop = "8px";
+    overview.innerHTML = "<strong>Still open:</strong> " + locNames.slice(0, 5).join(" · ")
+      + (locNames.length > 5 ? " · …" : "");
+    list.appendChild(overview);
+  }
 }
 
 function prefillInput(cmd) {
@@ -1369,6 +1469,9 @@ function runCommand(raw) {
   saveState();
   renderSidebar();
   renderHints();
+  // If the global guide is currently open, refresh it too.
+  const g = document.getElementById("guide-content");
+  if (g && !g.classList.contains("hidden")) renderGuide();
 }
 
 // -------------------- wiring --------------------
@@ -1407,6 +1510,21 @@ document.getElementById("hints-toggle").addEventListener("click", () => {
     tog.classList.add("open");
     tog.textContent = "💡 Hide hints";
     renderHints();  // refresh on open
+  }
+});
+
+// Toggle the global "Where next?" guide.
+document.getElementById("guide-toggle").addEventListener("click", () => {
+  const tog = document.getElementById("guide-toggle");
+  const box = document.getElementById("guide-content");
+  const hidden = box.classList.toggle("hidden");
+  if (hidden) {
+    tog.classList.remove("open");
+    tog.textContent = "🗺️ Where next?";
+  } else {
+    tog.classList.add("open");
+    tog.textContent = "🗺️ Hide guide";
+    renderGuide();
   }
 });
 
