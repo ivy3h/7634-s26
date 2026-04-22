@@ -20,13 +20,14 @@
   --rule: #2c251e;
 }
 * { box-sizing: border-box; }
-body {
+html, body {
   margin: 0; background: var(--bg); color: var(--paper);
   font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   font-size: 16px; line-height: 1.55;
-  min-height: 100vh;
-  display: flex; flex-direction: column;
+  height: 100vh;
+  overflow: hidden;       /* lock the page; inner regions scroll themselves */
 }
+body { display: flex; flex-direction: column; }
 header.masthead {
   padding: 18px 28px 14px;
   border-bottom: 1px solid var(--rule);
@@ -54,12 +55,14 @@ header.masthead a { color: var(--accent-soft); }
 .layout {
   display: grid;
   grid-template-columns: 280px 1fr 280px;
-  flex: 1; min-height: 0;
+  flex: 1 1 auto; min-height: 0;   /* let the grid fill remaining viewport */
+  overflow: hidden;                 /* children handle their own scroll */
 }
 aside {
   background: var(--panel);
   padding: 18px 18px 24px;
   overflow-y: auto;
+  min-height: 0;
   border-color: var(--rule);
 }
 aside.left  { border-right: 1px solid var(--rule); }
@@ -96,9 +99,12 @@ aside .exit-btn:hover { background: rgba(179,138,74,0.12); border-style: solid; 
   display: flex; flex-direction: column;
   min-height: 0;
   background: var(--bg);
+  overflow: hidden;
 }
 .log {
-  flex: 1; overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   padding: 22px 34px 20px;
   scroll-behavior: smooth;
 }
