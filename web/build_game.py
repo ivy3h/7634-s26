@@ -658,7 +658,9 @@ function buildHintCommands() {
     for (const ev of localEvents) {
       const firstArg = (ev.args || []).find(a => !String(a).startsWith("location."));
       let tgt = firstArg ? String(firstArg) : "";
+      let argIsCharacter = false;
       if (tgt.startsWith("character.")) {
+        argIsCharacter = true;
         const c = DATA.characters[tgt];
         tgt = c ? firstAlias(c) : tgt.split(".", 2)[1].replace(/_/g, " ");
       } else if (tgt.startsWith("evidence.")) {
@@ -671,7 +673,10 @@ function buildHintCommands() {
         tgt = String(tgt).replace(/_/g, " ").trim();
         tgt = tgt.toLowerCase().replace(/[^\w\s]/g, "").split(/\s+/).slice(0, 4).join(" ");
       }
-      const verbNorm = ev.verb === "investigate" ? "search" : ev.verb;
+      // Normalize a few plan verbs so the chip routes to a working handler.
+      let verbNorm = ev.verb;
+      if (verbNorm === "investigate") verbNorm = "search";
+      if (verbNorm === "visit" && argIsCharacter) verbNorm = "question";
       hints.push(`${verbNorm} ${tgt}`.trim());
       if (hints.length >= 3) break;
     }
