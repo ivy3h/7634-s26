@@ -531,7 +531,7 @@ aside .exit-btn:hover { background: rgba(179,138,74,0.12); border-style: solid; 
   <aside class="left">
     <h3>Exits</h3>
     <div id="exits"></div>
-    <h3>People here</h3>
+    <h3>Currently in room</h3>
     <ul id="characters-here"></ul>
     <h3>Notable here</h3>
     <ul id="evidence-here"></ul>
@@ -999,10 +999,36 @@ function eventAtHereMatching(verb, target) {
   return bestScore >= 3 ? best : null;
 }
 
+function _extractPersonLike(s) {
+  // Heuristic name-spotter for free-string event args. Picks up
+  // "Dr. Helena Frost" / "Professor Vane" / "Lord Ashworth" style names.
+  const m = String(s).match(
+    /\b(?:Dr|Mr|Mrs|Ms|Lady|Lord|Inspector|Sir|Madam|Professor|Prof)\.?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/
+  );
+  if (m) return m[0];
+  // Fallback: two+ capitalised words in a row.
+  const n = String(s).match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2}\b/);
+  return n ? n[0] : null;
+}
+
 function executeEvent(ev) {
   state.executedEvents.push(ev.id);
-  // Encounter any characters referenced in this event's args.
-  (ev.args || []).forEach(a => { if (String(a).startsWith("character.")) encounter(String(a)); });
+  const socialVerbs = new Set(["interview","consult","confront","question","visit"]);
+  (ev.args || []).forEach(a => {
+    const asStr = String(a);
+    if (asStr.startsWith("character.")) {
+      encounter(asStr);
+      if (socialVerbs.has(ev.verb)) {
+        const c = DATA.characters[asStr];
+        if (c) state.knowledge.push("Spoke with — " + c.name);
+      }
+    } else if (socialVerbs.has(ev.verb)) {
+      // Free-string arg referencing a person off the main character list
+      // (e.g. an off-screen consultant like Dr. Helena Frost).
+      const name = _extractPersonLike(asStr);
+      if (name) state.knowledge.push("Consulted — " + name);
+    }
+  });
   // Apply reveals: mark evidence discovered
   (ev.reveals || []).forEach(eid => {
     if (!state.evidenceFlags[eid]) state.evidenceFlags[eid] = {};
