@@ -1,7 +1,5 @@
 # Prologue
 
-# The Toast
-
 The crystal flutes caught the candlelight as Vivienne Ashford raised her glass, the hollow chamber in her serpent ring pressing cold against her finger.
 
 "To Edmund," she announced, her voice carrying across the drawing room. "To new beginnings."
@@ -32,15 +30,13 @@ And Vivienne Ashford began to weep, the empty ring burning against her skin like
 
 # Chapter 1: Crime Scene Discovery
 
-# Chapter 1: The Ring
-
-The Hartley Gallery still smelled of champagne and expensive perfume when Inspector James Rothwell arrived at half-past midnight. Edmund Hartley's body remained where the housekeeper had found it—slumped in the leather chair behind his mahogany desk, one hand outstretched toward the telephone he'd never reached.
+The Hartley residence still smelled of champagne and expensive perfume when Inspector James Rothwell arrived at half-past midnight. Edmund Hartley's body remained where the guests had left it—sprawled across the drawing room's Persian rug, one hand still reaching for the shattered flute whose champagne had pooled across the marble hearth.
 
 "Natural causes, you think?" Detective Martinez asked, though her tone suggested otherwise.
 
-Rothwell crouched beside the body, his penlight sweeping across Edmund's ashen face. "Men of forty-two don't typically collapse during their gallery's opening reception." He noted the dried foam at the corners of the victim's mouth, the peculiar cherry-red complexion beneath the pallor. "Get the medical examiner. I want toxicology rushed."
+Rothwell crouched beside the body, his penlight sweeping across Edmund's ashen face. "Men of forty-two don't typically collapse during their own gallery-opening toast." He noted the dried foam at the corners of the victim's mouth, the peculiar cherry-red complexion beneath the pallor. "Get the medical examiner. I want toxicology rushed."
 
-His light caught something glinting near Edmund's outstretched hand—a gold ring, partially hidden beneath the desk's shadow. Rothwell retrieved it carefully with gloved fingers, turning it slowly beneath the penlight's beam. Ornate flower petals were etched into the band, the craftsmanship exceptional.
+His light caught something glinting near Edmund's outstretched hand—a gold ring, partially hidden beneath the fringe of the rug. Rothwell retrieved it carefully with gloved fingers, turning it slowly beneath the penlight's beam. Ornate flower petals were etched into the band, the craftsmanship exceptional.
 
 "Martinez, look at this engraving."
 
@@ -50,9 +46,9 @@ The initial struck them both simultaneously. Geoffrey Hartley—Edmund's younger
 
 "Geoffrey was here tonight," Martinez said, consulting her preliminary notes. "Witnesses say the brothers argued near the champagne fountain around eight o'clock. Something about their father's will."
 
-Rothwell examined the ring more closely. A seam ran along the band, suggesting it might open, but his careful attempts revealed nothing. "Bag this as priority evidence. And this—" He gestured toward the champagne flute on Edmund's desk, still containing a finger of golden liquid. The rim bore a smudge of what appeared to be lipstick.
+Rothwell examined the ring more closely. A seam ran along the band, suggesting it might open, but his careful attempts revealed nothing. "Bag this as priority evidence. And this—" He gestured toward a second flute abandoned on the sideboard, still containing a finger of golden liquid. The rim bore a smudge of what appeared to be lipstick.
 
-"Odd detail for a man drinking alone in his study," Martinez observed.
+"Odd detail for a man who was supposed to be the evening's toast," Martinez observed.
 
 "Very odd." Rothwell stood, his mind cataloging inconsistencies. Why would Geoffrey's ring—if it was indeed his—be here? Had Edmund torn it from his brother during a final confrontation? "Get Geoffrey Hartley's exact whereabouts for every minute of tonight. And find out if anyone saw him wearing jewelry—specifically a gold ring."
 
@@ -63,8 +59,6 @@ Deadly, perhaps, but beautiful still.
 ---
 
 # Chapter 2: The Evidence Trail
-
-# Chapter 2: The Hollow Chamber
 
 Inspector Rothwell placed the delicate gold ring under the jeweler's loupe, watching as Mr. Castellano, a third-generation craftsman with thirty years of forensic consultation experience, examined the ornate flower design with practiced precision.
 
@@ -91,8 +85,6 @@ Rothwell's gaze sharpened. "Can you describe what you saw?"
 ---
 
 # Chapter 3: The Evidence Trail
-
-# Chapter 3
 
 Inspector Rothwell adjusted his spectacles as he studied the leather-bound guest register, its pages yellowed and smelling faintly of cigar smoke. The gentlemen's club steward, a rail-thin man who wore his livery with military precision, hovered nearby with practiced discretion.
 
@@ -122,8 +114,6 @@ The deflection was smooth, practiced. Too smooth, perhaps.
 
 # Chapter 4: Suspects and Misdirection
 
-# Chapter 4
-
 Inspector Rothwell had barely settled into the drawing room of Lady Beatrice's Kensington residence when the door opened unexpectedly. Dr. Marcus Pemberton entered with the easy familiarity of an old friend, carrying his medical bag and wearing an expression of practiced concern.
 
 "Inspector, Detective Martinez—I hope you don't mind my presence. Lady Beatrice telephoned me earlier, quite distressed about your impending visit. Given her fragile constitution, I thought it prudent to be here." He set his bag down with deliberate care, positioning himself between the detectives and the pale woman seated by the window.
@@ -143,8 +133,6 @@ Pemberton's expression grew somber. "I wanted to be certain. But now, with this 
 ---
 
 # Chapter 5: Suspects and Misdirection
-
-# Chapter 5
 
 The Grand Imperial Hotel's crystal chandeliers cast a warm glow over the burgundy carpeting as Inspector Rothwell and Detective Martinez approached the maître d's podium. The slender man in an immaculate tuxedo produced the reservation ledger with practiced efficiency, his manicured finger tracing down to the entry for that fateful evening.
 
@@ -173,8 +161,6 @@ Behind them, Thomas Blackwood returned to the kitchen, already reaching for his 
 ---
 
 # Chapter 6: Closing In
-
-# Chapter 6: Convergent Shadows
 
 Inspector Rothwell leaned forward in the gallery's cramped security office, his eyes fixed on the grainy footage as Vivienne Ashford and Edmund Hartley appeared on screen. The timestamp read 6:47 PM—thirty minutes before the fatal toast.
 
@@ -208,8 +194,6 @@ Yet something nagged at him. That hand on the security footage. Vivienne's prote
 
 # Chapter 7: Closing In
 
-# Chapter Seven
-
 Inspector Rothwell had barely crossed the threshold of the laboratory when his phone buzzed with an urgent message from Martinez. The confrontation with Dr. Pemberton had taken an unexpected turn. When Rothwell arrived at the medical examiner's office twenty minutes later, he found his partner in heated discussion with a third party—Thomas Blackwood, the gallery's insurance assessor, who had apparently arrived moments after Martinez began questioning Pemberton.
 
 "Inspector Rothwell, thank goodness you're here," Blackwood said smoothly, his silver cufflinks catching the fluorescent light as he gestured with practiced concern. "I've been explaining to Detective Martinez that I have information that might be relevant to your investigation. You see, I was reviewing the gallery's security protocols after Edmund's tragic death, and I discovered something rather disturbing." 
@@ -231,8 +215,6 @@ Rothwell folded the documents carefully, the net around Geoffrey Hartley drawing
 ---
 
 # Chapter 8: Building the False Case
-
-# Chapter 8
 
 The evidence bag hung between them like a pronouncement, the charred manifest fragment casting shadows across Rothwell's desk. Martinez adjusted the lamp, her face tight with concentration as the inspector's finger traced the singed margin.
 
@@ -266,8 +248,6 @@ Yet the hollow ring haunted him. Too delicate, too precise.
 
 # Chapter 9: Building the False Case
 
-# Chapter 9
-
 Inspector Rothwell strode through the sterile corridors of the Home Office morgue, the forensic report burning in his coat pocket like a live coal. The scopolamine discovery had opened a new dimension to Edmund Hartley's murder—premeditation of the coldest variety. As he pushed through the autopsy suite's double doors, he found not only the pathologist but Dr. Marcus Pemberton standing beside the examination table, his distinguished frame draped in a visitor's gown, his expression grave with professional concern.
 
 "Inspector," Pemberton began before Rothwell could speak, his voice carrying that particular authority reserved for Harley Street physicians. "I took the liberty of reviewing the preliminary toxicology at the coroner's request—Edmund was my patient for fifteen years, after all. This scopolamine finding troubles me deeply, but I feel obligated to share something." He paused, producing a leather-bound appointment diary. "Three weeks ago, Vivienne Ashford came to my consulting rooms complaining of severe migraines. She mentioned, quite casually, that Edmund had been behaving erratically, paranoid even. She wondered if stress might be affecting his judgment about the gallery's finances. At the time, I thought she was simply being a concerned business partner." Pemberton's fingers traced the diary entry with practiced precision. "But now I wonder—was she establishing a narrative? Planting seeds that Edmund was mentally unstable, perhaps to explain away any concerning behavior witnesses might report?"
@@ -282,13 +262,15 @@ By afternoon, Rothwell had relocated their conversation to the station, where Ma
 
 "Your pharmaceutical expertise makes you invaluable to this investigation, Doctor," Rothwell said carefully. "We know someone with medical knowledge had to coordinate Edmund Hartley's poisoning. The arsenic trioxide, the precise dosage—this wasn't amateur work." He paused, letting the weight settle. "Here's what I'm offering: full testimony about who planned this murder, and you walk away with accessory charges. Otherwise, you're looking at conspiracy to commit murder."
 
-Dr. Pemb
+Dr. Pemberton's composed features finally cracked, just for an instant. He reached for his water glass with fingers that trembled almost imperceptibly.
+
+"I'll need to consult counsel before I say anything further, Inspector."
+
+Rothwell nodded, satisfied. The thread would unravel; it was only a matter of time. But his own unease lingered—Pemberton's hesitation felt less like the calculation of a guilty man and more like the weary acceptance of one who had been anticipating this moment. Someone further up the chain had planned for this possibility too.
 
 ---
 
 # Chapter 10: Building the False Case
-
-# Chapter 10
 
 The leather-bound ledger felt heavy in Rothwell's hands, its gold-embossed initials catching the afternoon light slanting through Edmund Hartley's study. He'd found it wedged beneath auction catalogs, as though hastily concealed. The pages revealed meticulous records of artwork acquisitions, each entry in Edmund's precise script—until the red ink appeared.
 
@@ -296,7 +278,7 @@ The leather-bound ledger felt heavy in Rothwell's hands, its gold-embossed initi
 
 Rothwell's jaw tightened as he followed the pattern. Geoffrey Hartley's initials appeared again and again, always alongside inflated figures suggesting substantial overcharges. The most recent entry, dated three days before Edmund's death, stopped him cold: a disputed Rembrandt sketch with a notation in Edmund's agitated handwriting—*G.H.—confront immediately regarding Belgian discrepancies. Cannot continue.*
 
-"Geoffrey had access to the gallery's purchasing accounts," Rothwell said quietly. "If Edmund discovered his nephew was skimming funds through fraudulent invoicing..."
+"Geoffrey had access to the gallery's purchasing accounts," Rothwell said quietly. "If Edmund discovered his brother was skimming funds through fraudulent invoicing..."
 
 Martinez was already photographing the pages, her camera flash illuminating what appeared to be an unambiguous motive.
 
@@ -320,8 +302,6 @@ Rothwell set down the ring, the weight of Geoffrey Hartley's guilt settling over
 
 # Chapter 11: Building the False Case
 
-# Chapter 11
-
 The dawn raid had been meticulously planned, but as Inspector Rothwell approached the townhouse of Charlotte Devereaux at half-past five, he found her already awake, dressed immaculately in dove-grey silk, calmly arranging white roses in a crystal vase. She turned with practiced surprise as Martinez announced their presence, her hand fluttering to her throat in a gesture of delicate concern.
 
 "Inspector, how fortuitous—I was just about to telephone the station," she said, her voice trembling with what seemed like barely contained urgency. "I've been awake all night, tormented by conscience. That ring you found, the one with the hollow compartment... I saw Geoffrey handling it the evening before the gallery opening. I thought nothing of it at the time, assumed it was a gift for his wife perhaps, but now..." She moved to her writing desk, retrieving a handkerchief-wrapped bundle with theatrical reluctance. "I found this hidden in the gallery's storage room yesterday—a jeweler's receipt in Geoffrey's name for modifications to a ladies' ring, dated three weeks before Edmund's death. The specifications mention a 'concealed interior mechanism.'"
@@ -340,15 +320,13 @@ As they descended the townhouse steps, Martinez leaned close. "Dr. Pemberton con
 
 # The Resolution
 
-# Resolution
-
 Inspector Rothwell stood before the assembled household, his voice carrying the weight of certainty. "After three days of exhaustive investigation, I can now reveal the truth behind Edmund Hartley's murder."
 
 He gestured to the evidence table. "The champagne flute contained traces of arsenic trioxide. Edmund's personal correspondence reveals mounting tensions with his younger brother Geoffrey over the family estate. Most damning—this ledger, recovered from Geoffrey's study, shows debts exceeding thirty thousand pounds. Debts that would vanish entirely upon inheriting Edmund's fortune."
 
 Murmurs rippled through the drawing room.
 
-"Naturally, we examined all possibilities." Rothwell paced deliberately. "Lady Beatrice Worthington was in the conservatory during the fatal toast, witnessed by four guests. Gregory Sutherland had departed for London on the evening train—the stationmaster confirmed his ticket personally. Isabella Rossi was attending her sister's bedside in Dover, corroborated by hospital records. And Arthur Fenwick?" He paused. "Mr. Fenwick's severe gout prevented him from even attending the gathering that night."
+"Naturally, we examined all possibilities." Rothwell paced deliberately. "Lady Beatrice Worthington was at her Kensington residence during the fatal toast, the household staff providing consistent testimony. Gregory Sutherland had departed his gentlemen's club at half-past nine and caught the last train to London—the steward and stationmaster both confirmed. Isabella Rossi dined at the Grand Imperial Hotel until well past ten-thirty, the maître d' and senior waiter attesting to it. And Arthur Fenwick?" He paused. "Mr. Fenwick's severe gout prevented him from even attending the gathering that night."
 
 Rothwell's eyes swept the room, landing briefly on Vivienne Ashford's composed face before moving to Geoffrey.
 
@@ -376,15 +354,13 @@ As the door closed behind Geoffrey's retreating form, Vivienne finally permitted
 
 # Epilogue
 
-# Epilogue
+Geoffrey Hartley's protests echoed through the Hartley residence's marble halls as the constables led him away in irons. Detective Inspector Rothwell watched from the doorway, turning his silver pen between his fingers—the same pen he'd used to sign the arrest warrant. Something about the crime scene bothered him still, the way the hearth flute had been smashed while a second, untouched flute stood on the sideboard, but the evidence against Geoffrey was overwhelming. The case was closed.
 
-Geoffrey Hartley's protests echoed through Ashford Manor's marble halls as the constables led him away in irons. Detective Inspector Rothwell watched from the doorway, turning his silver pen between his fingers—the same pen he'd used to sign the arrest warrant. Something about the champagne flute bothered him, the way the stem had been wiped too clean, but the evidence against Geoffrey was overwhelming. The case was closed.
+Vivienne stood at the drawing room window, her reflection ghostly in the rain-streaked glass. In her mind, she replayed it all: the hollow ring clicking open as she raised her glass, Edmund's trusting smile during the toast, the arsenic trioxide dissolving invisibly into golden bubbles. He'd discovered her forgeries—Caravaggios, Vermeers, masterworks she'd created and sold through Europe's finest auction houses. Her half-brother—righteous Edmund, the only one of their mother's children born to the Hartley name and the Hartley wealth—had threatened to destroy everything she'd built.
 
-Vivienne stood at the drawing room window, her reflection ghostly in the rain-streaked glass. In her mind, she replayed it all: the hollow ring clicking open as she raised her glass, Edmund's trusting smile during the toast, the arsenic trioxide dissolving invisibly into golden bubbles. He'd discovered her forgeries—Caravaggios, Vermeers, masterworks she'd created and sold through Europe's finest auction houses. Her half-brother, righteous Edmund, had threatened to destroy everything she'd built.
+The conspirators had each played their part perfectly. Dr. Pemberton had provided the poison and falsified the autopsy timeline. Charlotte Devereaux, her dearest friend, had created the alibi—those fabricated witnesses placing Vivienne in London when she'd never left Mayfair. Charlotte had also produced the jeweler's receipt that pinned the modified ring on Geoffrey, while Thomas Blackwood had supplied the threatening letters that sealed it. They'd all profited from her forgeries; their silence was guaranteed by shared guilt.
 
-The conspirators had each played their part perfectly. Dr. Pemberton had provided the poison and falsified the autopsy timeline. Charlotte Devereaux, her dearest friend, had created the alibi—those fabricated witnesses placing Vivienne in London when she'd never left the manor. Thomas Blackwood had planted Geoffrey's monogrammed handkerchief near the body, the final damning thread. They'd all profited from her forgeries; their silence was guaranteed by shared guilt.
-
-Vivienne twisted the ring on her finger, now empty of its deadly cargo. She'd dissolved it in acid, poured it down the garden well at midnight.
+Vivienne's hand rose absently to the bare indent on her finger where the ring had once sat—now catalogued in Inspector Rothwell's evidence locker, its inner chamber wiped clean hours before the police arrived, its provenance traced neatly back to a Hartley heirloom Geoffrey alone had access to. The most incriminating piece of evidence in the case was hers, and it was pointing at someone else.
 
 Across the room, young Margaret, the housemaid, collected abandoned teacups with trembling hands. She'd been polishing silver in the butler's pantry during the toast, had seen through the crack in the door—Miss Vivienne's hand positioned so strangely, that odd clicking sound, the deliberate way she'd clinked glasses. But who would believe a housemaid over an Ashford?
 
