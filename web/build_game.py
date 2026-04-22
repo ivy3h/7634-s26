@@ -945,18 +945,6 @@ function renderGuide() {
       (hit.hops === 1 ? "directly next door." : hit.hops + " rooms away.") +
       (hit.hops > 1 ? " Start by heading to <strong>" + nextName + "</strong>." : "");
 
-    // offer a direct go-to chip for the first hop + the final destination
-    [nextStep, hit.id].forEach(id => {
-      if (!id || !DATA.locations[id]) return;
-      const cmd = "go to " + locAlias(DATA.locations[id]);
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "chip";
-      chip.innerHTML = '<span class="arrow">&gt;</span>' + cmd;
-      chip.title = "Copy to input (Enter to submit)";
-      chip.addEventListener("click", () => prefillInput(cmd));
-      list.appendChild(chip);
-    });
   } else {
     body.innerHTML =
       "<strong>" + done + " / " + totalEvents + " plot events explored.</strong> " +
