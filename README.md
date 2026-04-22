@@ -2,6 +2,14 @@
 
 An interactive text game built on top of the Phase I mystery generator. The player is the detective. Every command is classified as **constituent**, **consistent**, or **exceptional** by a drama manager that repairs the plan when the player breaks it.
 
+## 🎮 Play in your browser
+
+**[→ https://ivy-he.com/7634-s26/](https://ivy-he.com/7634-s26/)**
+
+Free-text detective game built on top of this repo's generated story. You play Inspector Rothwell investigating the murder of Edmund Hartley. Type commands (≤ 8 words) like `examine body`, `go to forensic laboratory`, `question sutherland`, or `accuse vivienne`. The drama manager watches every move and only accepts an accusation once you've uncovered enough evidence.
+
+Prefer to just read? The novel version is at **[/web/story_interactive.html](https://ivy-he.com/7634-s26/web/story_interactive.html)** — 11 chapters with a guess-the-killer gate before the Resolution and Epilogue unlock.
+
 ## Layout
 
 ```
