@@ -902,7 +902,10 @@ function executeEvent(ev) {
       }
     });
   }
-  addLog(ev.narrative, "narration", "— " + ev.description + " —");
+  // Strip any leading markdown '# ...' lines the LLM may have left on the
+  // plot-point prose (spurious chapter-style headings inside event text).
+  const cleanNarrative = (ev.narrative || "").replace(/^(?:#+[^\n]*\n\s*)+/, "").trim();
+  addLog(cleanNarrative, "narration", "— " + ev.description + " —");
   addLog("Your case grows clearer. (" + state.executedEvents.length + " / " + DATA.goal_events_needed + " plot events explored.)", "system");
 }
 
