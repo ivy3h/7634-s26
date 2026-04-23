@@ -112,6 +112,44 @@ def build_game_data() -> dict:
             "aliases": _id_aliases(crim_id, crim_name),
         }
 
+    # Phase I sometimes drifts on a character's surname mid-run (e.g.
+    # "Vivienne Ashford" in the case file becomes "Vivienne Hartley" in an
+    # event's args). Build a first-name -> canonical-id lookup and remap
+    # stray references so they land on the right character.
+    by_firstname: dict[str, list[str]] = {}
+    for cid, ch in characters.items():
+        if not ch.get("alive", True):
+            continue
+        first = re.split(r"\W+", (ch.get("name") or "").lower())[0]
+        if first:
+            by_firstname.setdefault(first, []).append(cid)
+    alias_remap: dict[str, str] = {}
+    all_arg_char_ids: set[str] = set()
+    for ev in plan["events"].values():
+        for a in ev.get("args", []):
+            if isinstance(a, str) and a.startswith("character."):
+                all_arg_char_ids.add(a)
+    for lid, loc in world["locations"].items():
+        for c in loc.get("characters", []):
+            if isinstance(c, str) and c.startswith("character."):
+                all_arg_char_ids.add(c)
+    for bad_id in all_arg_char_ids:
+        if bad_id in characters:
+            continue
+        body = bad_id.split(".", 1)[-1]
+        first = body.split("_", 1)[0]
+        candidates = by_firstname.get(first, [])
+        if len(candidates) == 1:
+            alias_remap[bad_id] = candidates[0]
+
+    # Apply the remap in place so downstream packing sees only canonical ids.
+    if alias_remap:
+        for ev in plan["events"].values():
+            ev["args"] = [alias_remap.get(a, a) if isinstance(a, str) else a
+                          for a in ev.get("args", [])]
+        for loc in world["locations"].values():
+            loc["characters"] = [alias_remap.get(c, c) for c in loc.get("characters", [])]
+
     # Build per-character blurbs from case_file. Suspects are red herrings,
     # so their motives + alibis are safe to share. Conspirators' "role" is a
     # plot spoiler (it describes their complicity), so we expose only the
@@ -426,6 +464,43 @@ aside.left .scene-desc {
   font-style: italic;
 }
 
+.dm-log {
+  max-height: 26vh;
+  overflow-y: auto;
+  padding: 4px 6px 6px;
+  margin: 8px -4px 0;
+  background: #161210;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  font-family: "Courier Prime", "Courier New", monospace;
+  font-size: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
+}
+.dm-log::-webkit-scrollbar { width: 6px; }
+.dm-log::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 3px; }
+.dm-log::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+.dm-log .entry {
+  padding: 3px 6px;
+  margin: 1px 0;
+  border-left: 2px solid var(--rule);
+  color: var(--paper);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dm-log .entry.constituent { border-left-color: var(--good);  color: #b8e0b8; }
+.dm-log .entry.consistent  { border-left-color: var(--muted); color: var(--muted); }
+.dm-log .entry.exceptional { border-left-color: var(--danger); color: #e4a8a8; }
+.dm-log .entry.move        { border-left-color: var(--accent-soft); color: var(--muted); }
+.dm-log .entry .tag {
+  display: inline-block;
+  min-width: 84px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
 .input-bar {
   display: flex; gap: 8px;
   padding: 12px 20px 16px;
@@ -560,6 +635,7 @@ aside.left .scene-desc {
     <div class="hints-panel">
       <button id="hints-toggle" class="hints-toggle" type="button">💡 Stuck? Show hints</button>
       <button id="guide-toggle" class="hints-toggle" type="button" style="margin-left:8px;">🗺️ Where next?</button>
+      <button id="dmlog-toggle" class="hints-toggle" type="button" style="margin-left:8px;">🎬 Drama Manager log</button>
       <div id="hints-content" class="hidden">
         <div id="hints-list" class="hints-list"></div>
         <div class="hints-note">Click a hint to pre-fill the input — you still press Enter (and can edit) to submit.</div>
@@ -567,6 +643,10 @@ aside.left .scene-desc {
       <div id="guide-content" class="hidden">
         <div id="guide-body" class="hints-note" style="color: var(--paper); padding: 6px 0 2px;"></div>
         <div id="guide-list" class="hints-list"></div>
+      </div>
+      <div id="dmlog-content" class="hidden">
+        <div id="dmlog-list" class="dm-log"></div>
+        <div class="hints-note">Per-turn drama-manager decisions. Green = constituent (plan event fired). Grey = consistent (no plan effect). Red = exceptional (intervention).</div>
       </div>
     </div>
     <form class="input-bar" id="input-form">
@@ -613,9 +693,44 @@ function freshState() {
     evidenceFlags: {}, // id -> {discovered, analyzed, destroyed}
     charactersInterviewed: [],
     encounteredCharacters: [],   // seen in a visited location or referenced by an executed event
+    dmLog: [],                    // behind-the-scenes drama-manager decision trail
     turns: 0,
     gameOver: false,
   };
+}
+
+function dmLog(kind, summary, detail) {
+  state.dmLog.push({
+    turn: state.turns,
+    kind: kind,
+    summary: summary,
+    detail: detail || "",
+    t: Date.now(),
+  });
+  if (state.dmLog.length > 200) state.dmLog.shift();  // cap memory
+}
+
+function renderDmLog() {
+  const list = document.getElementById("dmlog-list");
+  if (!list) return;
+  list.innerHTML = "";
+  if (!state.dmLog.length) {
+    const empty = document.createElement("div");
+    empty.className = "hints-note";
+    empty.style.padding = "12px 10px";
+    empty.textContent = "No turns logged yet. Start playing to see drama-manager decisions.";
+    list.appendChild(empty);
+    return;
+  }
+  // Newest first
+  [...state.dmLog].reverse().forEach(e => {
+    const div = document.createElement("div");
+    div.className = "entry " + e.kind;
+    const tag = `[T${String(e.turn).padStart(2,"0")} · ${e.kind}]`;
+    div.title = e.summary + (e.detail ? " — " + e.detail : "");
+    div.innerHTML = '<span class="tag">' + tag + '</span> ' + e.summary + (e.detail ? ' — <em>' + e.detail + '</em>' : '');
+    list.appendChild(div);
+  });
 }
 function encounter(cid) {
   if (!cid) return;
@@ -1018,14 +1133,13 @@ function renderSidebar() {
       if (!e) return;
       const li = document.createElement("li");
       const flag = state.evidenceFlags[eid] || {};
+      const short = truncate(e.description, 40);
       if (flag.discovered) {
-        li.textContent = "☑ " + truncate(e.description, 40);
+        li.textContent = "☑ " + short;
         if (flag.destroyed) li.style.textDecoration = "line-through";
       } else {
-        // Don't spoil what it is — just hint there's something to investigate.
-        li.textContent = "? something catches the eye";
+        li.textContent = "☐ " + short;
         li.className = "muted";
-        li.style.fontStyle = "italic";
       }
       evEl.appendChild(li);
     });
@@ -1052,6 +1166,22 @@ function renderSidebar() {
 }
 
 function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+
+function sceneSketch(loc) {
+  if (!loc) return null;
+  const chars = (loc.characters || [])
+    .map(cid => DATA.characters[cid])
+    .filter(c => c && c.alive)
+    .map(c => c.name);
+  const items = (loc.evidence || [])
+    .map(eid => DATA.evidence[eid])
+    .filter(e => e)
+    .map(e => truncate(e.description, 48));
+  const out = [];
+  if (chars.length) out.push("Here with you: " + chars.join(", ") + ".");
+  if (items.length) out.push("You notice: " + items.join("; ") + ".");
+  return out.length ? out.join(" ") : null;
+}
 
 function renderSuspectList() {
   const susEl = document.getElementById("suspects");
@@ -1235,6 +1365,9 @@ function note(entry) {
 
 function executeEvent(ev) {
   state.executedEvents.push(ev.id);
+  dmLog("constituent",
+        "executed plan event " + ev.id + " (" + ev.verb + ")",
+        "location=" + (ev.location || "?") + " reveals=[" + (ev.reveals || []).join(",") + "]");
 
   // Encounter any character whose name appears in this event's prose —
   // some conspirators only surface in narrative text (not in structured
@@ -1302,6 +1435,17 @@ function executeEvent(ev) {
   const cleanNarrative = (ev.narrative || "").replace(/^(?:#+[^\n]*\n\s*)+/, "").trim();
   addLog(cleanNarrative, "narration", "— " + ev.description + " —");
   addLog("Your case grows clearer. (" + state.executedEvents.length + " / " + DATA.goal_events_needed + " plot events explored.)", "system");
+  // If that was the last event at this location, nudge the player to move.
+  const remainingAtHere = Object.values(DATA.events).filter(
+    ev2 => ev2.location === state.location && !state.executedEvents.includes(ev2.id)
+  ).length;
+  if (remainingAtHere === 0) {
+    addLog(
+      "Nothing more to investigate at " + (currentLoc() ? currentLoc().name : "this scene") +
+      ". Try an exit from the left panel, or open 🗺️ Where next? to see what's still open elsewhere.",
+      "system"
+    );
+  }
   // Final-event nudge, once.
   const pendingCountAfter = Object.values(DATA.events).filter(
     ev2 => !state.executedEvents.includes(ev2.id)
@@ -1319,27 +1463,32 @@ function executeEvent(ev) {
 function handleMove(target) {
   const loc = matchLocation(target);
   if (!loc) {
+    dmLog("move", "rejected move: '" + target + "' not reachable", "");
     addLog("You cannot find a way to " + target + " from here. (Click an exit in the left panel, or try one of the names listed there.)", "outcome");
     return;
   }
   const cur = currentLoc();
   if (!cur || !cur.adjacent.includes(loc.id)) {
+    dmLog("move", "rejected move: " + loc.name + " not adjacent", "");
     addLog("You'd have to pass through somewhere else first. " + loc.name + " isn't directly reachable from " + (cur ? cur.name : "here") + ".", "outcome");
     return;
   }
   state.lastLocation = state.location;
   state.location = loc.id;
   encounterAll(loc.characters);
+  dmLog("move", "detective moved to " + loc.name, "no classification");
   addLog("You make your way to " + loc.name + ".", "system");
   addLog(loc.description, "outcome");
+  const sketch = sceneSketch(loc);
+  if (sketch) addLog(sketch, "outcome");
 }
 
 function handleLook() {
   const loc = currentLoc();
   if (!loc) return;
   addLog(loc.description, "outcome");
-  const names = loc.characters.map(id => (DATA.characters[id] || {}).name).filter(Boolean);
-  if (names.length) addLog("You see " + names.join(", ") + ".", "outcome");
+  const sketch = sceneSketch(loc);
+  if (sketch) addLog(sketch, "outcome");
 }
 
 function handleExamine(target) {
@@ -1355,12 +1504,14 @@ function handleExamine(target) {
       if (!e) continue;
       for (const a of (e.aliases || [])) {
         if (target.toLowerCase().includes(a)) {
+          dmLog("consistent", "examined " + eid + " in-place (no new plan event)", "requires specialist elsewhere");
           addLog("You peer at the " + truncate(e.description, 50) + ", but nothing new reveals itself. Perhaps a specialist could analyze it elsewhere.", "outcome");
           return;
         }
       }
     }
   }
+  dmLog("consistent", "examine '" + target + "' — nothing matched", "no plan effect");
   addLog("You look, but " + target + " doesn't seem to be here — or Inspector Rothwell can't make sense of it from this angle.", "outcome");
 }
 
@@ -1383,6 +1534,7 @@ function handleInterview(target) {
   // Nothing plan-relevant left to extract from this character at this
   // location. Mark them "interviewed" so the hint engine stops looping.
   if (!state.charactersInterviewed.includes(c.id)) state.charactersInterviewed.push(c.id);
+  dmLog("consistent", "questioned " + c.name + " (no plan event)", "no plan effect");
   addLog(c.name + " answers politely but says nothing that moves the case forward here.", "outcome");
 }
 
@@ -1390,30 +1542,36 @@ function handleAnalyze(target) {
   const ev = eventAtHereMatching("analyze", target);
   if (ev) { executeEvent(ev); return; }
   if (!currentLoc().id.includes("lab") && !currentLoc().id.includes("forensic")) {
+    dmLog("consistent", "analyze '" + target + "' in non-lab setting", "no plan effect");
     addLog("You'd need proper equipment. Try a forensic laboratory.", "outcome");
     return;
   }
+  dmLog("consistent", "analyze '" + target + "' (no matching plan event)", "no plan effect");
   addLog("The analysis yields nothing useful.", "outcome");
 }
 
 function handleSearch(target) {
   const ev = eventAtHereMatching("search", target);
   if (ev) { executeEvent(ev); return; }
+  dmLog("consistent", "search '" + target + "' (no matching plan event)", "no plan effect");
   addLog("You search " + (target || "the area") + " thoroughly but find nothing new.", "outcome");
 }
 
 function handleAccuse(target) {
   const c = matchCharacter(target);
   if (!c) {
+    dmLog("consistent", "accuse '" + target + "' — unknown name", "no plan effect");
     addLog("You announce an accusation, but the name doesn't register with anyone present. Be specific: try 'accuse <surname>'.", "outcome");
     return;
   }
   if (state.executedEvents.length < DATA.goal_events_needed) {
+    dmLog("exceptional", "premature accusation of " + c.name, "intervention: evidence threshold not met");
     addLog("You haven't gathered enough evidence yet. An accusation without proof will be dismissed. Keep investigating.", "exception");
     return;
   }
   if (c.id === DATA.real_criminal_id) {
     state.gameOver = true;
+    dmLog("constituent", "correct accusation: " + c.name, "case closed");
     addLog(
       "You lay the hollow ring on the evidence table with deliberate care. " +
       "Dr. Pemberton — broken in the interrogation hours earlier — has already " +
@@ -1448,6 +1606,7 @@ function handleAccuse(target) {
     addLog("Case record closed. Press Reset to begin a new investigation.", "system");
   } else {
     state.gameOver = true;
+    dmLog("exceptional", "wrong accusation: " + c.name, "real killer escapes; case closed with wrongful arrest");
     addLog(
       "You name " + c.name + " as the poisoner of " + DATA.victim_name + ". " +
       "The room falls silent. Constable Morris steps forward, handcuffs in hand. " +
@@ -1481,6 +1640,9 @@ function handleAccuse(target) {
 
 function handleDestroy(target) {
   // Drama-manager "exceptional" pantomime
+  dmLog("exceptional",
+        "destructive action on '" + target + "' refused",
+        "intervention: preserve story path");
   addLog("You reach to tamper with " + target + ", but catch yourself. An inspector who destroys evidence is no inspector at all. (The drama manager has intervened — your story still has a path to the truth.)", "exception");
 }
 
@@ -1518,9 +1680,10 @@ function runCommand(raw) {
   saveState();
   renderSidebar();
   renderHints();
-  // If the global guide is currently open, refresh it too.
   const g = document.getElementById("guide-content");
   if (g && !g.classList.contains("hidden")) renderGuide();
+  const d = document.getElementById("dmlog-content");
+  if (d && !d.classList.contains("hidden")) renderDmLog();
 }
 
 // -------------------- wiring --------------------
@@ -1574,6 +1737,21 @@ document.getElementById("guide-toggle").addEventListener("click", () => {
     tog.classList.add("open");
     tog.textContent = "🗺️ Hide guide";
     renderGuide();
+  }
+});
+
+// Toggle the Drama Manager log panel.
+document.getElementById("dmlog-toggle").addEventListener("click", () => {
+  const tog = document.getElementById("dmlog-toggle");
+  const box = document.getElementById("dmlog-content");
+  const hidden = box.classList.toggle("hidden");
+  if (hidden) {
+    tog.classList.remove("open");
+    tog.textContent = "🎬 Drama Manager log";
+  } else {
+    tog.classList.add("open");
+    tog.textContent = "🎬 Hide DM log";
+    renderDmLog();
   }
 });
 
