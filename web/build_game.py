@@ -1226,7 +1226,7 @@ function sceneSketch(loc) {
   const items = (loc.evidence || [])
     .map(eid => DATA.evidence[eid])
     .filter(e => e)
-    .map(e => truncate(e.description, 90));
+    .map(e => e.description);   // show full description; log wraps naturally
   const out = [];
   if (chars.length) out.push("Here with you: " + chars.join(", ") + ".");
   if (items.length) out.push("You notice: " + items.join("; ") + ".");
