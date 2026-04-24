@@ -162,6 +162,11 @@ aside.left .scene-desc {
   color: var(--accent);
   letter-spacing: 0.04em;
 }
+.log .entry strong {
+  color: var(--accent-soft);
+  font-weight: 600;
+}
+.log .entry.victory strong { color: #cfe8c8; }
 .log .entry.outcome {
   color: var(--warn);
   font-size: 14px;
@@ -530,7 +535,7 @@ state = loadState();
 
 // -------------------- rendering --------------------
 const logEl = document.getElementById("log");
-function addLog(text, cls = "outcome", title = null) {
+function addLog(text, cls = "outcome", title = null, asHtml = false) {
   const div = document.createElement("div");
   div.className = "entry " + cls;
   if (title) {
@@ -539,10 +544,55 @@ function addLog(text, cls = "outcome", title = null) {
     div.appendChild(h);
   }
   const body = document.createElement("div");
-  body.textContent = text;
+  if (asHtml) body.innerHTML = text;
+  else        body.textContent = text;
   div.appendChild(body);
   logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
+}
+
+// Highlight character names + location names inside a block of narrative
+// prose. Returns HTML-safe text with <strong> around each match.
+function _escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+let _HIGHLIGHT_TERMS_CACHE = null;
+function _buildHighlightTerms() {
+  const terms = new Set();
+  const STOP = new Set(["name","the","your","this","that","lady","lord",
+                        "inspector","detective","sir","madam","mrs","mr","ms","dr"]);
+  Object.values(DATA.characters).forEach(c => {
+    if (!c.name) return;
+    terms.add(c.name);                          // full name
+    const parts = c.name.split(/\s+/);
+    parts.forEach(p => {
+      const clean = p.replace(/[^\w']+$/, "").replace(/^[^\w]+/, "");
+      if (clean.length >= 4 && !STOP.has(clean.toLowerCase())) terms.add(clean);
+    });
+  });
+  Object.values(DATA.locations || {}).forEach(l => {
+    if (l.name && l.name.length > 3) terms.add(l.name);
+  });
+  return [...terms].sort((a, b) => b.length - a.length);
+}
+function highlightText(text) {
+  if (!_HIGHLIGHT_TERMS_CACHE) _HIGHLIGHT_TERMS_CACHE = _buildHighlightTerms();
+  let out = _escapeHtml(text);
+  const buckets = [];   // collected matches; placeholders inserted inline
+  _HIGHLIGHT_TERMS_CACHE.forEach(term => {
+    const pat = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp('\\b(' + pat + ')\\b', 'g');
+    out = out.replace(re, (m) => {
+      buckets.push(m);
+      return '\u0000' + (buckets.length - 1) + '\u0000';
+    });
+  });
+  return out.replace(/\u0000(\d+)\u0000/g,
+    (_, i) => '<strong>' + buckets[+i] + '</strong>');
 }
 
 // -------------------- hint engine (non-prescriptive) --------------------
@@ -1211,7 +1261,7 @@ function executeEvent(ev) {
   // Strip any leading markdown '# ...' lines the LLM may have left on the
   // plot-point prose (spurious chapter-style headings inside event text).
   const cleanNarrative = (ev.narrative || "").replace(/^(?:#+[^\n]*\n\s*)+/, "").trim();
-  addLog(cleanNarrative, "narration", "— " + ev.description + " —");
+  addLog(highlightText(cleanNarrative), "narration", "— " + ev.description + " —", /*asHtml=*/ true);
   addLog("Your case grows clearer. (" + state.executedEvents.length + " / " + DATA.goal_events_needed + " plot events explored.)", "system");
   // If that was the last event at this location, nudge the player to move.
   const remainingAtHere = Object.values(DATA.events).filter(
@@ -1230,11 +1280,7 @@ function executeEvent(ev) {
   ).length;
   if (pendingCountAfter === 0 && !state.allDoneAnnounced) {
     state.allDoneAnnounced = true;
-    addLog(
-      "Every trail you could follow has been followed. Every interview logged, every record pulled, every room canvassed. Your notebook is full. It is time to name the poisoner — type 'accuse <suspect>'.",
-      "narration",
-      "— the case, fully explored —"
-    );
+    addLog(highlightText("Every trail you could follow has been followed. Every interview logged, every record pulled, every room canvassed. Your notebook is full. It is time to name the poisoner — type 'accuse <suspect>'."), "narration", "— the case, fully explored —", /*asHtml=*/ true);
   }
 }
 
@@ -1258,7 +1304,7 @@ function handleMove(target) {
   addLog("You make your way to " + loc.name + ".", "system");
   addLog(loc.description, "outcome");
   const sketch = sceneSketch(loc);
-  if (sketch) addLog(sketch, "outcome");
+  if (sketch) addLog(highlightText(sketch), "outcome", null, /*asHtml=*/ true);
 }
 
 function handleLook() {
@@ -1266,7 +1312,7 @@ function handleLook() {
   if (!loc) return;
   addLog(loc.description, "outcome");
   const sketch = sceneSketch(loc);
-  if (sketch) addLog(sketch, "outcome");
+  if (sketch) addLog(highlightText(sketch), "outcome", null, /*asHtml=*/ true);
 }
 
 function handleExamine(target) {
@@ -1350,68 +1396,44 @@ function handleAccuse(target) {
   if (c.id === DATA.real_criminal_id) {
     state.gameOver = true;
     dmLog("constituent", "correct accusation: " + c.name, "case closed");
-    addLog(
-      "You lay the hollow ring on the evidence table with deliberate care. " +
+    addLog(highlightText("You lay the hollow ring on the evidence table with deliberate care. " +
       "Dr. Pemberton — broken in the interrogation hours earlier — has already " +
       "given you the skeleton of the account. Charlotte Devereaux's fingerprints " +
       "on the planted jeweler's receipt do the rest. You turn to " + c.name +
       " and read the warrant aloud: the gallery owner, the half-sister, the " +
       "poisoner. Her face composes itself into that flawless marble calm that " +
       "has served her so well for so long. It does not survive the click of the " +
-      "handcuffs.",
-      "victory",
-      "— THE CASE IS CLOSED —"
-    );
-    addLog(
-      "Outside, fog rises off the Thames in slow, indifferent ribbons. In the " +
+      "handcuffs."), "victory", "— THE CASE IS CLOSED —", /*asHtml=*/ true);
+    addLog(highlightText("Outside, fog rises off the Thames in slow, indifferent ribbons. In the " +
       "butler's pantry of the Ashford townhouse, a housemaid named Margaret " +
       "grips a silver tray until her knuckles whiten — she had watched the " +
       "mechanism click through a sliver of doorway on the night of the toast, " +
       "and told no one. Now that the arrest is done, she will not need to. You " +
       "step out into the grey dawn with Detective Martinez at your shoulder, " +
       "the case file heavy in your coat, and listen to the constable's whistle " +
-      "fading up the square.",
-      "narration",
-      "— the loose end —"
-    );
-    addLog(
-      "Justice comes fitfully in this city — most often late, and never entire. " +
+      "fading up the square."), "narration", "— the loose end —", /*asHtml=*/ true);
+    addLog(highlightText("Justice comes fitfully in this city — most often late, and never entire. " +
       "But tonight, at least, it has come for " + DATA.victim_name + ". " +
-      "The Hartley Affair is closed.",
-      "narration",
-      "— coda —"
-    );
+      "The Hartley Affair is closed."), "narration", "— coda —", /*asHtml=*/ true);
     addLog("Case record closed. Press Reset to begin a new investigation.", "system");
   } else {
     state.gameOver = true;
     dmLog("exceptional", "wrong accusation: " + c.name, "real killer escapes; case closed with wrongful arrest");
-    addLog(
-      "You name " + c.name + " as the poisoner of " + DATA.victim_name + ". " +
+    addLog(highlightText("You name " + c.name + " as the poisoner of " + DATA.victim_name + ". " +
       "The room falls silent. Constable Morris steps forward, handcuffs in hand. " +
       c.name + " protests — weakly at first, then with escalating desperation — " +
       "but the chain of evidence you have assembled looks tidy enough on paper, " +
       "and the magistrate will not ask too many questions tonight. The arrest is " +
       "done. A reporter from the Daily Chronicle is already scribbling his " +
-      "headline.",
-      "narration",
-      "— A WRONGFUL ARREST —"
-    );
-    addLog(
-      "Somewhere at the edge of the room — by a window, lit gold by the gaslight — " +
+      "headline."), "narration", "— A WRONGFUL ARREST —", /*asHtml=*/ true);
+    addLog(highlightText("Somewhere at the edge of the room — by a window, lit gold by the gaslight — " +
       "another figure watches the proceedings with an expression carefully " +
       "arranged between sympathy and concern. That figure's fingers brush a ring " +
       "on their hand for the briefest instant, then release. You do not notice. " +
-      "You are already drafting your report.",
-      "narration",
-      "— the one who walked free —"
-    );
-    addLog(
-      "The Hartley Affair is closed in the ledger of Scotland Yard, but not in " +
+      "You are already drafting your report."), "narration", "— the one who walked free —", /*asHtml=*/ true);
+    addLog(highlightText("The Hartley Affair is closed in the ledger of Scotland Yard, but not in " +
       "the city that reads about it tomorrow. Somewhere, the truth drifts up " +
-      "the Thames with the morning fog — thin, persistent, and, for now, unheard.",
-      "narration",
-      "— coda —"
-    );
+      "the Thames with the morning fog — thin, persistent, and, for now, unheard."), "narration", "— coda —", /*asHtml=*/ true);
     addLog("A wrongful arrest has ended the case. Press Reset to try again.", "system");
   }
 }
@@ -1535,14 +1557,10 @@ document.getElementById("dmlog-toggle").addEventListener("click", () => {
 
 function greet() {
   addLog("CASE: The Hartley Affair", "system");
-  addLog(
-    "You are " + DATA.detective_name + " of Scotland Yard. It is past midnight. " +
+  addLog(highlightText("You are " + DATA.detective_name + " of Scotland Yard. It is past midnight. " +
     "Tonight, the host of a private gallery reception — " + DATA.victim_name + " — " +
     "collapsed in his own home during the opening toast. The attending physician called it heart failure; " +
-    "you are unconvinced. A constable has just opened the door for you, and the body lies where it fell.",
-    "narration",
-    "— the call that brought you here —"
-  );
+    "you are unconvinced. A constable has just opened the door for you, and the body lies where it fell."), "narration", "— the call that brought you here —", /*asHtml=*/ true);
   const loc = currentLoc();
   addLog(
     "You step into " + (loc ? loc.name : "the scene") + ". " + (loc ? loc.description : ""),
