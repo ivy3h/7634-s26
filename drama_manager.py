@@ -30,12 +30,69 @@ Key design points:
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from llm_client import chat_json
 from plan_types import CausalLink, Condition, Effect, Event, Plan
+
+
+# ---------------------------------------------------------------------------
+# Verb synonym families & token helpers for constituent matching
+# ---------------------------------------------------------------------------
+
+# Each frozenset is a family of interchangeable verbs. If the plan event verb
+# and the parsed verb land in the same family, they are treated as equivalent.
+_VERB_FAMILIES: list[frozenset[str]] = [
+    # physical inspection — examine / check / inspect / search / investigate all count
+    frozenset({"examine", "check", "inspect", "observe", "look", "study",
+               "review", "search", "investigate", "explore", "scour"}),
+    # scientific analysis
+    frozenset({"analyze", "analyse", "test", "process"}),
+    # social interaction — question / interview / consult / confront / accuse / visit all count
+    frozenset({"interview", "question", "talk", "speak", "ask",
+               "consult", "confront", "accuse", "arrest", "charge", "visit", "meet"}),
+    # movement
+    frozenset({"move", "go", "walk", "travel", "head"}),
+]
+
+_STOP = frozenset({
+    "the", "and", "for", "with", "from", "that", "this", "are", "was",
+    "has", "have", "been", "his", "her", "its", "into", "upon", "over",
+    "under", "around", "within", "when", "then", "also", "only", "just",
+})
+
+
+def _verb_in_same_family(ev_verb: str, parsed_verb: str) -> bool:
+    """Return True if two verbs belong to the same synonym family."""
+    if ev_verb == parsed_verb:
+        return True
+    for family in _VERB_FAMILIES:
+        if ev_verb in family and parsed_verb in family:
+            return True
+    return False
+
+
+def _tok(text: str) -> set[str]:
+    """Lowercase content tokens: ≥4 chars, not a stop word."""
+    return {t for t in re.split(r"\W+", text.lower())
+            if len(t) >= 4 and t not in _STOP}
+
+
+# Verbs/keywords that are always exceptional for a detective — no LLM call
+# needed to decide; the keyword match is sufficient.
+_DESTRUCTIVE_VERBS: frozenset[str] = frozenset({
+    "burn", "destroy", "smash", "break", "shatter", "tamper",
+    "contaminate", "conceal", "steal", "forge", "alter", "corrupt",
+    "shoot", "kill", "attack", "assault", "threaten", "bribe",
+    "dispose", "hide", "cover",
+})
+_DESTRUCTIVE_RE = re.compile(
+    r"\b(" + "|".join(re.escape(v) for v in sorted(_DESTRUCTIVE_VERBS)) + r")\b",
+    re.IGNORECASE,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -89,58 +146,73 @@ Output JSON:
 
 ACCOMMODATION_SYSTEM = """You are a partial-order-plan repair agent. You output only valid JSON.
 Your job: given a broken detective plan and the current world state, propose
-replacement events that restore the detective's path to the goal. You may
-modify unrevealed details of the crime but never its core outcome."""
+the MINIMUM number of replacement events that restore the detective's path to
+the goal. You may modify unrevealed crime details but never the core outcome.
+CRITICAL RULES — violating any of these makes your output unusable:
+1. ONLY use characters from the provided characters list. Never invent new people.
+2. ONLY use locations from the provided locations list. Never invent new places.
+3. Prefer 1 replacement event. Use 2 only if truly necessary. Never use 3+.
+4. If the goal is already reachable through surviving events, output 0 replacements.
+5. Each replacement must be immediately achievable by the detective with current resources."""
 
 
-ACCOMMODATION_PROMPT = """Current world snapshot (relevant slice): {world_snapshot}
+ACCOMMODATION_PROMPT = """Current world snapshot: {world_snapshot}
 
-Goal conditions: {goal}
+Goal conditions that must still be reachable: {goal}
 
-Events just removed (unreachable): {removed_events}
-Active causal links still standing: {surviving_links}
-Characters present in the world: {characters}
-Locations in the world: {locations}
-Evidence still not destroyed: {live_evidence}
+Events just removed (unreachable due to exceptional action): {removed_events}
+Surviving causal links: {surviving_links}
 
-Produce replacement events that keep the story moving toward the goal.
+ALLOWED characters (use ONLY these exact ids): {characters}
+ALLOWED locations (use ONLY these exact ids): {locations}
+Undestroyed evidence: {live_evidence}
+
+If the goal conditions are still satisfiable by the surviving events alone,
+output zero replacement events (empty list). Otherwise produce the minimum
+replacements needed — usually just 1.
+
 Output JSON:
 {{
   "replacement_events": [
     {{"id": "R01",
-      "verb": "interview|examine|search|analyze|consult|observe|confront|reconstruct",
-      "args": ["<subject id>", ...],
-      "location": "location.<snake>",
-      "preconditions": [{{"subject":"...", "attr":"...", "op":"==", "value":...}}, ...],
-      "effects": [{{"subject":"...", "attr":"...", "op":"set|add|remove", "value":...}}, ...],
-      "reveals": ["evidence.<id>", ...],
-      "description": "one sentence the detective would say while doing this",
-      "narrative": "one short paragraph of prose"
-    }},
-    ...
+      "verb": "interview|examine|search|analyze|consult|confront",
+      "args": ["<one of the ALLOWED character or evidence ids above>"],
+      "location": "<one of the ALLOWED location ids above>",
+      "preconditions": [],
+      "effects": [{{"subject":"detective", "attr":"knowledge", "op":"add", "value":"<slug>"}}],
+      "reveals": [],
+      "description": "one sentence the detective would do",
+      "narrative": "one short paragraph of 1920s-noir prose, staying in the established story context"
+    }}
   ],
-  "rationale": "2-3 sentences explaining how these events repair the plan"
+  "rationale": "one sentence explaining the repair"
 }}
 
-Constraints:
-- Do NOT reveal the real criminal directly; preserve mystery.
-- Prefer 1-3 replacement events (not a whole new plan).
-- Each effect should mirror the contract of the removed events where possible,
-  so the goal remains reachable."""
+Hard constraints:
+- Do NOT invent characters, locations, or evidence IDs not in the ALLOWED lists above.
+- Do NOT reveal the real criminal. Preserve mystery.
+- Keep effects minimal — one or two knowledge additions at most."""
 
 
 # ---------------------------------------------------------------------------
 # Drama manager
 # ---------------------------------------------------------------------------
 class DramaManager:
-    def __init__(self, plan: Plan, log_path: str | Path = "logs/drama.jsonl") -> None:
+    def __init__(self, plan: Plan, world: Any = None, log_path: str | Path = "logs/drama.jsonl") -> None:
         self.plan = plan
+        self.world = world
         self.executed: list[str] = []
         self.remaining: list[str] = sorted(plan.events.keys())
         self.log_path = Path(log_path)
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         self.log: list[LogEntry] = []
         self._next_repair_idx = 1
+        # Build predecessor index from plan.order for ordering enforcement.
+        # predecessors[eid] = {set of event ids that must execute before eid}
+        self._predecessors: dict[str, set[str]] = {eid: set() for eid in plan.events}
+        for producer, consumer in plan.order:
+            if consumer in self._predecessors:
+                self._predecessors[consumer].add(producer)
 
     # ---- logging ---------------------------------------------------------
     def _log(self, kind: str, **payload: Any) -> None:
@@ -165,17 +237,41 @@ class DramaManager:
         state: dict[str, dict[str, Any]],
     ) -> dict[str, Any]:
         """Return {classification, matched_event_id|None, threats, details}."""
-        constituent_match = self._find_constituent_match(parsed_action)
-        proposed_effects = [Effect.from_dict(e) for e in parsed_action.get("effects", []) if isinstance(e, dict)]
+        constituent_match = self._find_constituent_match(parsed_action, state)
+        proposed_effects = []
+        for _e in parsed_action.get("effects", []):
+            if not isinstance(_e, dict):
+                continue
+            try:
+                proposed_effects.append(Effect.from_dict(_e))
+            except (KeyError, TypeError):
+                pass  # malformed LLM effect — skip
         hard_violations = self._hard_violations(proposed_effects)
 
-        # Commonsense threat check — only needed if not already an obvious
-        # hard violation, because the LLM call is expensive.
-        soft_threats: list[dict[str, Any]] = []
-        if not hard_violations and (proposed_effects or parsed_action.get("novel_state_vars")):
-            soft_threats = self._commonsense_threats(parsed_action)
+        # Detect destructive inputs by keyword — these are always exceptional
+        # regardless of whether the LLM action interpreter modelled any effects.
+        raw_input = (parsed_action.get("_raw") or "").lower()
+        is_destructive = (
+            parsed_action.get("verb", "").lower() in _DESTRUCTIVE_VERBS
+            or bool(_DESTRUCTIVE_RE.search(raw_input))
+        )
 
-        classification = self._decide_classification(constituent_match, hard_violations, soft_threats)
+        # Commonsense threat check — skip when a hard violation is already
+        # confirmed; always run for destructive inputs (effects may be empty).
+        soft_threats: list[dict[str, Any]] = []
+        cs_hint = "consistent"
+        needs_cs = not hard_violations and (
+            is_destructive or proposed_effects or parsed_action.get("novel_state_vars")
+        )
+        if needs_cs:
+            soft_threats, cs_hint = self._commonsense_threats(parsed_action)
+
+        # Destructive inputs with no constituent match are always exceptional,
+        # overriding a "consistent" commonsense hint.
+        if is_destructive and not constituent_match:
+            cs_hint = "exceptional"
+
+        classification = self._decide_classification(constituent_match, hard_violations, soft_threats, cs_hint)
 
         result = {
             "classification": classification,
@@ -190,26 +286,69 @@ class DramaManager:
             matched_event_id=constituent_match,
             hard_violations=[cl.to_dict() for cl in hard_violations],
             soft_threats=soft_threats,
+            cs_hint=cs_hint,
+            active_links=[cl.to_dict() for cl in self.active_links()],
+            remaining_count=len(self.remaining),
+            executed_count=len(self.executed),
         )
         return result
 
-    def _find_constituent_match(self, parsed_action: dict[str, Any]) -> str | None:
+    def _find_constituent_match(
+        self,
+        parsed_action: dict[str, Any],
+        state: dict[str, dict[str, Any]],
+    ) -> str | None:
         """Return the first remaining event whose verb + args substantially
-        overlap with the parsed action."""
+        overlap with the parsed action, respecting the detective's current
+        location and character availability."""
         raw = (parsed_action.get("_raw") or "").lower()
         parsed_verb = parsed_action.get("verb", "").lower()
-        parsed_args_lower = {str(a).lower() for a in parsed_action.get("args", [])}
+        cur_loc = state.get("detective", {}).get("location", "")
+
         for eid in self.remaining:
             ev = self.plan.events[eid]
-            # Skip if the plan event requires a specific location the player
-            # isn't at — that's clearly not this action.
-            if parsed_verb and ev.verb.lower() != parsed_verb and not raw:
+
+            # Skip if the event is tied to a different location.
+            if ev.location and cur_loc and ev.location != cur_loc:
                 continue
-            ev_args_lower = {str(a).lower() for a in ev.args}
-            if parsed_args_lower & ev_args_lower:
+
+            # Respect partial-order constraints: all declared predecessors must
+            # already be executed (or absent from the plan) before this event
+            # can match.
+            required = self._predecessors.get(eid, set())
+            if required and not required.issubset(set(self.executed) | (set(self.plan.events) - set(self.remaining))):
+                continue
+
+            # Skip if any required character is not at the detective's location
+            # or is no longer available.
+            if self.world and cur_loc:
+                loc_obj = self.world.locations.get(cur_loc)
+                chars_here = set(loc_obj.characters) if loc_obj else set()
+                ev_chars = {str(a) for a in ev.args if str(a).startswith("character.")}
+                if ev_chars:
+                    available_here = {
+                        cid for cid in chars_here
+                        if state.get(cid, {}).get("alive", True)
+                        and state.get(cid, {}).get("available", True)
+                    }
+                    if not ev_chars & available_here:
+                        continue
+
+            ev_verb = ev.verb.lower()
+            verb_matches = (not parsed_verb) or _verb_in_same_family(ev_verb, parsed_verb)
+
+            # Token-level content match: tolerates LLM paraphrasing and the
+            # mismatch between short user words ("ring", "body") and full plan
+            # arg phrases ("ladies' ring with flower design").
+            ev_tokens = _tok(" ".join(str(a) for a in ev.args) + " " + ev.description)
+            input_tokens = _tok(raw) | _tok(" ".join(str(a) for a in parsed_action.get("args", [])))
+            content_match = bool(input_tokens & ev_tokens)
+
+            if verb_matches and content_match:
                 return eid
-            # Fallback: description substring match on the raw input.
-            if raw and any(tok in ev.description.lower() for tok in raw.split() if len(tok) > 3):
+            # Softer fallback: strong content match even if verb is off
+            # (guards against LLM verb drift, e.g. "observe" for "search").
+            if content_match and len(input_tokens & ev_tokens) >= 2:
                 return eid
         return None
 
@@ -237,7 +376,10 @@ class DramaManager:
             return effect.value == condition.value
         return False
 
-    def _commonsense_threats(self, parsed_action: dict[str, Any]) -> list[dict[str, Any]]:
+    def _commonsense_threats(
+        self, parsed_action: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], str]:
+        """Return (threatened_events, overall_classification_hint)."""
         remaining_summary = [
             {
                 "id": eid,
@@ -258,21 +400,31 @@ class DramaManager:
             parsed = chat_json(prompt, system=THREAT_SYSTEM, max_tokens=600, temperature=0.2)
         except Exception as err:  # noqa: BLE001 — falling back is safer than crashing
             self._log("threat_query_failed", error=repr(err))
-            return []
-        return parsed.get("threatened_events", []) if isinstance(parsed, dict) else []
+            return [], "consistent"
+        if not isinstance(parsed, dict):
+            return [], "consistent"
+        threats = parsed.get("threatened_events", [])
+        hint = parsed.get("overall_classification_hint", "consistent")
+        return threats, hint
 
     @staticmethod
     def _decide_classification(
         constituent_match: str | None,
         hard_violations: list[CausalLink],
         soft_threats: list[dict[str, Any]],
+        cs_hint: str = "consistent",
     ) -> str:
-        any_unrepairable_soft = any(not t.get("repairable", True) for t in soft_threats)
-        if hard_violations or soft_threats:
+        # Hard causal-link violations always win — the plan structure is broken.
+        if hard_violations:
             return "exceptional"
+        # A constituent match means the player is performing exactly the planned
+        # action. Soft threats from the commonsense reasoner should yield to an
+        # explicit plan match; they only matter for free (non-plan) actions.
         if constituent_match:
             return "constituent"
-        _ = any_unrepairable_soft  # reserved for future tiering
+        # For free actions, escalate on commonsense threats.
+        if soft_threats or cs_hint == "exceptional":
+            return "exceptional"
         return "consistent"
 
     # ---- execution -------------------------------------------------------
@@ -283,7 +435,16 @@ class DramaManager:
         self.executed.append(event_id)
         if event_id in self.remaining:
             self.remaining.remove(event_id)
-        self._log("executed_constituent", event_id=event_id)
+        self._log(
+            "executed_constituent",
+            event_id=event_id,
+            event_verb=event.verb,
+            event_description=event.description,
+            effects_applied=[ef.to_dict() for ef in event.effects],
+            reveals=list(event.reveals),
+            remaining_after=len(self.remaining),
+            executed_total=len(self.executed),
+        )
 
     def apply_free_effects(
         self,
@@ -311,6 +472,14 @@ class DramaManager:
         for cl_dict in classification.get("hard_violations", []):
             threatened_ids.add(cl_dict.get("consumer"))
         threatened_ids.discard(None)
+
+        # Snapshot plan state before removal for logging.
+        plan_before = [
+            {"id": eid, "verb": self.plan.events[eid].verb,
+             "desc": self.plan.events[eid].description[:70]}
+            for eid in self.remaining if eid in self.plan.events
+        ]
+        active_links_before = [cl.to_dict() for cl in self.active_links()]
 
         removed_events: list[str] = []
         for eid in list(self.remaining):
@@ -364,11 +533,24 @@ class DramaManager:
             self.remaining.append(rid)
             replacements.append(ev)
 
+        plan_after = [
+            {"id": eid, "verb": self.plan.events[eid].verb,
+             "desc": self.plan.events[eid].description[:70]}
+            for eid in self.remaining if eid in self.plan.events
+        ]
         self._log(
             "accommodation",
             removed_events=removed_events,
+            removed_descriptions=[
+                self.plan.events[eid].description for eid in removed_events if eid in self.plan.events
+            ],
             replacement_event_ids=[e.id for e in replacements],
+            replacement_descriptions=[e.description for e in replacements],
             rationale=parsed.get("rationale", "") if isinstance(parsed, dict) else "",
+            plan_before=plan_before,
+            plan_after=plan_after,
+            active_links_before=active_links_before,
+            goal_reachability=self.goal_reachability(),
         )
         return {
             "removed_events": removed_events,
@@ -379,6 +561,49 @@ class DramaManager:
     # ---- goal check ------------------------------------------------------
     def goal_satisfied(self, state: dict[str, dict[str, Any]]) -> bool:
         return all(c.evaluate(state) for c in self.plan.goal)
+
+    def goal_reachability(self) -> dict[str, Any]:
+        """Heuristic: which goal conditions can still be satisfied by remaining events?"""
+        reachable, blocked = [], []
+        for cond in self.plan.goal:
+            can_satisfy = any(
+                any(self._effect_satisfies_condition(ef, cond)
+                    for ef in self.plan.events[eid].effects)
+                for eid in self.remaining if eid in self.plan.events
+            )
+            (reachable if can_satisfy else blocked).append(
+                f"{cond.subject}.{cond.attr} {cond.op} {cond.value}"
+            )
+        verdict = "reachable" if not blocked else ("no_path" if not reachable else "partially_blocked")
+        return {"reachable": reachable, "blocked": blocked, "verdict": verdict}
+
+    @staticmethod
+    def _effect_satisfies_condition(effect: Effect, condition: Condition) -> bool:
+        if effect.subject != condition.subject or effect.attr != condition.attr:
+            return False
+        if condition.op == "==" and effect.op == "set":
+            return effect.value == condition.value
+        if condition.op == "contains" and effect.op == "add":
+            return effect.value == condition.value
+        if condition.op == "not_contains" and effect.op == "remove":
+            return effect.value == condition.value
+        return False
+
+    # ---- turn-start marker (called by GameEngine) ------------------------
+    def log_turn_start(self, turn: int, raw: str, location: str) -> None:
+        self._log(
+            "turn_start",
+            turn=turn,
+            command=raw,
+            detective_location=location,
+            remaining_count=len(self.remaining),
+            executed_count=len(self.executed),
+            remaining_events=[
+                {"id": eid, "verb": self.plan.events[eid].verb,
+                 "desc": self.plan.events[eid].description[:70]}
+                for eid in self.remaining if eid in self.plan.events
+            ],
+        )
 
 
 def _compact_state(state: dict[str, dict[str, Any]], max_chars: int = 2000) -> dict[str, Any]:

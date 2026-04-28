@@ -74,6 +74,8 @@ def build_game_data() -> dict:
     plan = json.loads((ROOT / "data/plan.json").read_text(encoding="utf-8"))
     world = json.loads((ROOT / "data/world.json").read_text(encoding="utf-8"))
     case = json.loads((ROOT / "data/case_file.json").read_text(encoding="utf-8"))
+    story_path = ROOT / "data/final_story.md"
+    story_text = story_path.read_text(encoding="utf-8") if story_path.exists() else ""
 
     events: dict[str, dict] = {}
     for eid, ev in plan["events"].items():
@@ -91,10 +93,13 @@ def build_game_data() -> dict:
     for subj, fields in plan["initial_state"].items():
         if subj.startswith("character."):
             name = fields.get("name", subj.split(".", 1)[-1].replace("_", " ").title())
+            raw_role = fields.get("role", "")
+            # Mask conspirator status — revealing it in the browser spoils the mystery.
+            display_role = "associate" if raw_role == "conspirator" else raw_role
             characters[subj] = {
                 "id": subj,
                 "name": name,
-                "role": fields.get("role", ""),
+                "role": display_role,
                 "alive": fields.get("alive", True),
                 "aliases": _id_aliases(subj, name),
             }
@@ -199,9 +204,42 @@ def build_game_data() -> dict:
             "aliases": _id_aliases(lid, loc["name"]),
         }
 
+    # Ensure dead characters (victims) appear at the starting location so
+    # the "Currently in room" panel shows the body from turn 1.
+    start_loc = world.get("starting_location", "")
+    if start_loc and start_loc in locations:
+        for subj, fields in plan["initial_state"].items():
+            if subj.startswith("character.") and not fields.get("alive", True):
+                if subj not in locations[start_loc]["characters"]:
+                    locations[start_loc]["characters"].insert(0, subj)
+
+    # De-duplicate evidence across locations: each evidence item belongs to the
+    # first location whose plan event reveals it. Items with no reveal event stay
+    # in whichever location world_builder placed them.
+    ev_primary_loc: dict[str, str] = {}
+    for ev in plan["events"].values():
+        ev_loc = ev.get("location", "")
+        for rev in ev.get("reveals", []):
+            rev_id = str(rev)
+            if not rev_id.startswith("evidence."):
+                rev_id = "evidence." + rev_id
+            if rev_id not in ev_primary_loc:
+                ev_primary_loc[rev_id] = ev_loc
+    for lid, loc_data in locations.items():
+        loc_data["evidence"] = [
+            eid for eid in loc_data["evidence"]
+            if ev_primary_loc.get(eid, lid) == lid
+        ]
+
     # The real-criminal id used for the accusation win condition
     crim_name = case.get("criminal", {}).get("name", "")
     crim_id = "character." + re.sub(r"\W+", "_", crim_name.lower()).strip("_")
+
+    # Build a predecessor map: {event_id: [required_event_ids]} from plan order
+    predecessors: dict[str, list[str]] = {eid: [] for eid in plan["events"]}
+    for producer, consumer in plan.get("order", []):
+        if consumer in predecessors:
+            predecessors[consumer].append(producer)
 
     return {
         "starting_location": world["starting_location"],
@@ -214,6 +252,8 @@ def build_game_data() -> dict:
         "evidence": evidence_entities,
         "locations": locations,
         "goal_events_needed": 10,
+        "story_text": story_text,
+        "predecessors": predecessors,
     }
 
 
@@ -302,7 +342,7 @@ aside h3 {
 }
 aside h3:not(:first-child) { margin-top: 18px; }
 aside ul { list-style: none; margin: 0; padding: 0; font-size: 13.5px; }
-aside li { padding: 3px 0; color: var(--paper); }
+aside li { padding: 3px 0; color: var(--paper); white-space: normal; word-break: break-word; line-height: 1.4; }
 aside .muted { color: var(--muted); font-style: italic; font-size: 13px; }
 aside .exit-btn {
   background: transparent;
@@ -490,9 +530,8 @@ aside.left .scene-desc {
   margin: 1px 0;
   border-left: 2px solid var(--rule);
   color: var(--paper);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
 }
 .dm-log .entry.constituent { border-left-color: var(--good);  color: #b8e0b8; }
 .dm-log .entry.consistent  { border-left-color: var(--muted); color: var(--muted); }
@@ -617,9 +656,7 @@ aside.left .scene-desc {
     <h1>The Hartley Affair &mdash; Play</h1>
     <p class="subtitle">You are Inspector Rothwell. Find the killer.</p>
   </div>
-  <div style="font-size:12px; color: var(--muted);">
-    <a href="./web/story_interactive.html">← Read the novel version</a>
-  </div>
+  <div style="font-size:12px; color: var(--muted);">Template 2 &mdash; CS 7634</div>
 </header>
 
 <div class="layout">
@@ -641,6 +678,9 @@ aside.left .scene-desc {
       <button id="hints-toggle" class="hints-toggle" type="button">💡 Stuck? Show hints</button>
       <button id="guide-toggle" class="hints-toggle" type="button" style="margin-left:8px;">🗺️ Where next?</button>
       <button id="dmlog-toggle" class="hints-toggle" type="button" style="margin-left:8px;">🎬 Drama Manager log</button>
+      <label id="dm-verbose-label" style="display:none; margin-left:10px; font-size:12px; color:var(--muted); cursor:pointer; user-select:none;">
+        <input type="checkbox" id="dm-verbose-chk"> verbose
+      </label>
       <div id="hints-content" class="hidden">
         <div id="hints-list" class="hints-list"></div>
         <div class="hints-note">Click a hint to pre-fill the input — you still press Enter (and can edit) to submit.</div>
@@ -669,22 +709,35 @@ aside.left .scene-desc {
     <h3>Suspects</h3>
     <ul id="suspects" class="scroll-list"></ul>
     <h3>Progress</h3>
-    <div class="muted" style="font-size:12px;">
-      <span id="events-triggered">0</span> / <span id="events-needed">0</span> plot events explored.
+    <div style="font-size:12px; display:flex; justify-content:space-between; color:var(--accent-soft); margin-bottom:4px;">
+      <span><span id="events-triggered">0</span> / <span id="events-needed">0</span> leads pursued</span>
+      <span id="pbar-pct">0%</span>
     </div>
     <div class="progress-bar"><div id="pbar" style="width:0%"></div></div>
   </aside>
 </div>
 
 <footer class="footer-links">
-  <a href="./web/story_interactive.html">Novel version</a>
-  <a href="https://github.com/ivy3h/7634-s26">Source</a>
+  <button id="novel-btn" type="button" style="background:none;border:none;padding:0;cursor:pointer;color:var(--accent-soft);font:inherit;">📖 Read story</button>
+  &middot; <a href="https://github.com/ivy3h/7634-s26">Source</a>
   &middot; Template 2: Intervention &amp; Accommodation &middot; CS 7634
 </footer>
+
+<div id="novel-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:1000;overflow-y:auto;padding:48px 24px;">
+  <button id="novel-close" style="position:fixed;top:16px;right:22px;background:none;border:none;color:var(--paper);font-size:28px;cursor:pointer;line-height:1;">✕</button>
+  <div id="novel-content" style="max-width:800px;margin:0 auto;color:var(--paper);font-family:Georgia,serif;line-height:1.85;font-size:17px;"></div>
+</div>
 
 <script>
 const DATA = __GAME_DATA__;
 const STORAGE_KEY = "hartley_affair_game_v1";
+// null = offline/JS mode. Set to "" or a full URL to route through the LLM server.
+let API_URL = null;
+// When false, the DM log shows only constituent/exceptional one-liners.
+// When true, every turn is shown with full classification detail.
+let dmVerbose = false;
+let _hintEventId = null;  // force-event id stored when a hint chip is clicked
+let _hintCmd = null;      // cmd text stored alongside, cleared if user edits
 
 // -------------------- state --------------------
 let state;
@@ -719,21 +772,47 @@ function renderDmLog() {
   const list = document.getElementById("dmlog-list");
   if (!list) return;
   list.innerHTML = "";
-  if (!state.dmLog.length) {
+
+  const entries = dmVerbose
+    ? [...state.dmLog].reverse()
+    : [...state.dmLog].reverse().filter(e => e.kind === "constituent" || e.kind === "exceptional");
+
+  if (!entries.length) {
     const empty = document.createElement("div");
     empty.className = "hints-note";
     empty.style.padding = "12px 10px";
-    empty.textContent = "No turns logged yet. Start playing to see drama-manager decisions.";
+    empty.textContent = dmVerbose
+      ? "No turns logged yet. Start playing to see drama-manager decisions."
+      : "No significant events yet. Constituent (plan events fired) and exceptional (plan modified) entries will appear here.";
     list.appendChild(empty);
     return;
   }
-  // Newest first
-  [...state.dmLog].reverse().forEach(e => {
+
+  entries.forEach(e => {
     const div = document.createElement("div");
     div.className = "entry " + e.kind;
-    const tag = `[T${String(e.turn).padStart(2,"0")} · ${e.kind}]`;
-    div.title = e.summary + (e.detail ? " — " + e.detail : "");
-    div.innerHTML = '<span class="tag">' + tag + '</span> ' + e.summary + (e.detail ? ' — <em>' + e.detail + '</em>' : '');
+    const tLabel = `T${String(e.turn).padStart(2,"0")}`;
+
+    if (dmVerbose) {
+      // Full detail: tag + summary + detail
+      const tag = `[${tLabel} · ${e.kind}]`;
+      div.title = e.summary + (e.detail ? " — " + e.detail : "");
+      div.innerHTML = '<span class="tag">' + tag + '</span> ' + e.summary
+        + (e.detail ? ' — <em>' + e.detail + '</em>' : '');
+    } else {
+      // Minimal: only constituent and exceptional, condensed one-liner
+      if (e.kind === "constituent") {
+        const desc = e.event_desc ? e.event_desc.slice(0, 60) : e.summary;
+        div.innerHTML = '<span class="tag">[' + tLabel + ' ✓]</span> ' + desc;
+        div.title = e.detail || e.summary;
+      } else {
+        // exceptional
+        let line = e.plan_change || e.summary;
+        if (e.goal_verdict) line += ' — goal: ' + e.goal_verdict;
+        div.innerHTML = '<span class="tag">[' + tLabel + ' ⚠]</span> ' + line;
+        div.title = e.detail || "";
+      }
+    }
     list.appendChild(div);
   });
 }
@@ -745,6 +824,7 @@ function encounter(cid) {
 }
 function encounterAll(ids) { (ids || []).forEach(encounter); }
 function loadState() {
+  if (API_URL !== null) return freshState();
   try {
     const s = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (s && s.location) return s;
@@ -757,6 +837,13 @@ state = loadState();
 
 // -------------------- rendering --------------------
 const logEl = document.getElementById("log");
+// Delegated handler for inline hint chips rendered inside log entries
+logEl.addEventListener("click", (e) => {
+  const btn = e.target.closest(".inline-hint");
+  if (!btn) return;
+  const cmd = btn.dataset.cmd;
+  if (cmd) { prefillInput(cmd); _hintEventId = null; _hintCmd = null; }
+});
 function addLog(text, cls = "outcome", title = null, asHtml = false) {
   const div = document.createElement("div");
   div.className = "entry " + cls;
@@ -832,15 +919,29 @@ function firstAlias(entity) {
 function locAlias(loc) { return loc ? loc.name.toLowerCase() : ""; }
 function truncLabel(s, n = 34) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
 
+// Returns true if a plan-event arg string looks like a location name
+// (so we don't include it in hint chip text).
+function _argIsLocationLike(arg) {
+  const s = String(arg).toLowerCase().trim();
+  if (s.startsWith("location.")) return true;
+  return Object.values(DATA.locations).some(loc => {
+    const n = (loc.name || "").toLowerCase();
+    if (n.length > 3 && (s === n || s.includes(n) || n.includes(s))) return true;
+    return (loc.aliases || []).some(a => a.length > 3 && (s === a || s.includes(a)));
+  });
+}
+
 function buildHintCommands() {
   const hints = [];
   const loc = currentLoc();
 
-  // A. Remaining plan events at this location.
+  // A. Remaining plan events at this location whose predecessors are all done.
   if (loc) {
-    const localEvents = Object.values(DATA.events).filter(
-      ev => ev.location === state.location && !state.executedEvents.includes(ev.id)
-    );
+    const localEvents = Object.values(DATA.events).filter(ev => {
+      if (ev.location !== state.location || state.executedEvents.includes(ev.id)) return false;
+      const preds = DATA.predecessors[ev.id] || [];
+      return preds.every(p => state.executedEvents.includes(p));
+    });
     // Count how many local events share the same first non-location arg —
     // if > 1, we need to include a distinguishing second arg in the chip
     // so the command scores onto a single event instead of ping-ponging
@@ -890,7 +991,7 @@ function buildHintCommands() {
           !String(a).startsWith("location.") && a !== firstArg
         );
         const pick = unique || anySecond;
-        if (pick) tgt = tgt + " " + prettyArg(pick);
+        if (pick && !_argIsLocationLike(String(pick))) tgt = tgt + " " + prettyArg(pick);
       }
 
       // Normalize a few plan verbs so the chip routes to a working handler.
@@ -900,7 +1001,7 @@ function buildHintCommands() {
       // Hard cap: keep chips at most 6 words so they fit cleanly in the
       // panel and still fit under the parser's 8-word command ceiling.
       const finalHint = `${verbNorm} ${tgt}`.trim().split(/\s+/).slice(0, 6).join(" ");
-      hints.push(finalHint);
+      hints.push({cmd: finalHint, eventId: ev.id});
       if (hints.length >= 3) break;
     }
   }
@@ -916,16 +1017,17 @@ function buildHintCommands() {
       if (!c || !c.alive) continue;
       if (state.charactersInterviewed.includes(cid)) continue;
       const alias = firstAlias(c);
-      const already = hints.some(h => h.toLowerCase().includes(alias));
+      const already = hints.some(h => h.cmd.toLowerCase().includes(alias));
       if (already || hints.length >= 4) continue;
-      const hasPendingSocialEvent = Object.values(DATA.events).some(ev =>
-        ev.location === state.location
-        && !state.executedEvents.includes(ev.id)
-        && socialFamily.has(ev.verb)
-        && (ev.args || []).some(a => String(a).toLowerCase().includes(alias))
-      );
-      if (hasPendingSocialEvent) {
-        hints.push("question " + alias);
+      const pendingSocialEv = Object.values(DATA.events).find(ev => {
+        if (ev.location !== state.location || state.executedEvents.includes(ev.id)) return false;
+        if (!socialFamily.has(ev.verb)) return false;
+        if (!(ev.args || []).some(a => String(a).toLowerCase().includes(alias))) return false;
+        const preds = DATA.predecessors[ev.id] || [];
+        return preds.every(p => state.executedEvents.includes(p));
+      });
+      if (pendingSocialEv) {
+        hints.push({cmd: "question " + alias, eventId: pendingSocialEv.id});
       }
     }
   }
@@ -981,7 +1083,7 @@ function buildHintCommands() {
       .sort((a, b) => (b.immediate * 10 + b.within) - (a.immediate * 10 + a.within));
     for (const x of ranked.slice(0, 2)) {
       if (hints.length >= 4) break;
-      hints.push("go to " + locAlias(x.loc));
+      hints.push({cmd: "go to " + locAlias(x.loc), eventId: null});
     }
   }
 
@@ -994,22 +1096,23 @@ function buildHintCommands() {
     if (reach.firstHit && reach.firstHit !== state.location) {
       const targetLoc = DATA.locations[reach.firstHit];
       if (targetLoc) {
-        const cmd = "go to " + locAlias(targetLoc);
-        if (!hints.includes(cmd)) hints.push(cmd);
+        const moveCmd = "go to " + locAlias(targetLoc);
+        if (!hints.some(h => h.cmd === moveCmd)) hints.push({cmd: moveCmd, eventId: null});
       }
     }
   }
 
   // E. Fallback baseline.
   if (hints.length === 0) {
-    hints.push("look");
+    hints.push({cmd: "look", eventId: null});
   }
 
   // Deliberately no 'accuse X' hint — the detective must choose their own
   // suspect. Accusation is always available via free text, no hint needed.
 
-  // Keep it short.
-  return Array.from(new Set(hints)).slice(0, 5);
+  // Deduplicate by cmd text and cap at 5.
+  const _seen = new Set();
+  return hints.filter(h => { if (_seen.has(h.cmd)) return false; _seen.add(h.cmd); return true; }).slice(0, 5);
 }
 
 function renderHints() {
@@ -1022,27 +1125,56 @@ function renderHints() {
     list.appendChild(m);
     return;
   }
-  // All plan events triggered — the investigation phase is done. Nudge
-  // toward an accusation instead of looping on 'look'.
   const pendingCount = Object.values(DATA.events).filter(
     ev => !state.executedEvents.includes(ev.id)
   ).length;
-  if (pendingCount === 0) {
-    const m = document.createElement("div");
-    m.className = "hints-note";
-    m.style.color = "var(--accent-soft)";
-    m.innerHTML = "All leads exhausted. Review your notebook, then type <code>accuse &lt;suspect&gt;</code> to close the case.";
-    list.appendChild(m);
+  // Player has hit the evidence threshold — show a prominent accuse chip.
+  const canAccuse = state.executedEvents.length >= DATA.goal_events_needed;
+  if (canAccuse) {
+    const note = document.createElement("div");
+    note.className = "hints-note";
+    note.style.color = "var(--accent-soft)";
+    note.innerHTML = "You have enough evidence. Review your notebook, pick your suspect, and accuse.";
+    list.appendChild(note);
+    // Show the suspect names as accusation chips
+    const suspects = Object.values(DATA.characters)
+      .filter(c => c.alive && (c.role === "suspect" || c.role === "associate"))
+      .filter(c => state.encounteredCharacters.includes(c.id));
+    suspects.forEach(c => {
+      const surname = (c.name || "").split(" ").slice(-1)[0].toLowerCase();
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.innerHTML = `<span class="arrow">&gt;</span>accuse ${surname}`;
+      chip.title = "Click to fill input with accusation";
+      chip.addEventListener("click", () => {
+        prefillInput("accuse " + surname);
+        _hintEventId = null; _hintCmd = null;
+      });
+      list.appendChild(chip);
+    });
+    if (pendingCount > 0) {
+      const more = document.createElement("div");
+      more.className = "hints-note";
+      more.style.marginTop = "6px";
+      more.style.fontSize = "11px";
+      more.textContent = `(${pendingCount} more lead${pendingCount > 1 ? "s" : ""} still available if you want to keep digging)`;
+      list.appendChild(more);
+    }
     return;
   }
   const hints = buildHintCommands();
-  hints.forEach(cmd => {
+  hints.forEach(h => {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip";
-    chip.innerHTML = `<span class="arrow">&gt;</span>${cmd}`;
-    chip.title = "Copy to input (Enter to submit)";
-    chip.addEventListener("click", () => prefillInput(cmd));
+    chip.innerHTML = `<span class="arrow">&gt;</span>${h.cmd}`;
+    chip.title = "Click to fill input, then press Enter to submit";
+    chip.addEventListener("click", () => {
+      prefillInput(h.cmd);
+      _hintEventId = h.eventId || null;
+      _hintCmd = h.cmd;
+    });
     list.appendChild(chip);
   });
 }
@@ -1160,14 +1292,21 @@ function renderSidebar() {
   const charsEl = document.getElementById("characters-here");
   charsEl.innerHTML = "";
   const here = loc ? loc.characters : [];
-  if (!here.length) {
+  const aliveHere = here.filter(cid => { const c = DATA.characters[cid]; return c && c.alive; });
+  const deadHere  = here.filter(cid => { const c = DATA.characters[cid]; return c && !c.alive; });
+  if (!aliveHere.length && !deadHere.length) {
     charsEl.innerHTML = '<li class="muted">(no-one of interest)</li>';
   } else {
-    here.forEach(cid => {
+    deadHere.forEach(cid => {
       const c = DATA.characters[cid];
-      if (!c || !c.alive) return;
       const li = document.createElement("li");
-      li.textContent = c.name + " (" + (c.role || "-") + ")";
+      li.innerHTML = '<em style="color:var(--muted)">†&nbsp;' + c.name + ' — victim\'s body</em>';
+      charsEl.appendChild(li);
+    });
+    aliveHere.forEach(cid => {
+      const c = DATA.characters[cid];
+      const li = document.createElement("li");
+      li.textContent = c.name;
       charsEl.appendChild(li);
     });
   }
@@ -1178,12 +1317,13 @@ function renderSidebar() {
   if (!evHere.length) {
     evEl.innerHTML = '<li class="muted">(nothing catches the eye)</li>';
   } else {
-    evHere.forEach(eid => {
+    evHere.forEach(rawEid => {
+      const eid = _normEvidenceId(rawEid);
       const e = DATA.evidence[eid];
       if (!e) return;
       const li = document.createElement("li");
       const flag = state.evidenceFlags[eid] || {};
-      const short = truncate(e.description, 40);
+      const short = truncate(e.description, 80);
       if (flag.discovered) {
         li.textContent = "☑ " + short;
         if (flag.destroyed) li.style.textDecoration = "line-through";
@@ -1213,20 +1353,33 @@ function renderSidebar() {
   document.getElementById("events-needed").textContent = DATA.goal_events_needed;
   const pct = Math.min(100, Math.round(100 * state.executedEvents.length / DATA.goal_events_needed));
   document.getElementById("pbar").style.width = pct + "%";
+  const pctEl = document.getElementById("pbar-pct");
+  if (pctEl) pctEl.textContent = pct + "%";
 }
 
 function truncate(s, n) { return s.length > n ? s.slice(0, n - 1) + "…" : s; }
 
+function _normEvidenceId(eid) {
+  // Normalize bare IDs like "E007" to "evidence.E007"
+  return (typeof eid === "string" && !eid.startsWith("evidence.")) ? "evidence." + eid : eid;
+}
 function sceneSketch(loc) {
   if (!loc) return null;
   const chars = (loc.characters || [])
-    .map(cid => DATA.characters[cid])
-    .filter(c => c && c.alive)
-    .map(c => c.name);
+    .map(cid => {
+      const c = DATA.characters[cid];
+      if (c && c.alive) return c.name;
+      // Fallback: pretty-print the ID if character data is missing
+      if (!c) return cid.replace(/^character\./, "").replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+      return null;
+    })
+    .filter(Boolean);
   const items = (loc.evidence || [])
-    .map(eid => DATA.evidence[eid])
-    .filter(e => e)
-    .map(e => e.description);   // show full description; log wraps naturally
+    .map(eid => {
+      const e = DATA.evidence[_normEvidenceId(eid)];
+      return e ? e.description : null;
+    })
+    .filter(Boolean);
   const out = [];
   if (chars.length) out.push("Here with you: " + chars.join(", ") + ".");
   if (items.length) out.push("You notice: " + items.join("; ") + ".");
@@ -1381,6 +1534,9 @@ function eventAtHereMatching(verb, target) {
   for (const ev of pool) {
     if (state.executedEvents.includes(ev.id)) continue;
     if (!allowedVerbs.has(ev.verb)) continue;
+    // Enforce partial order: all predecessors must have been executed first.
+    const preds = DATA.predecessors[ev.id] || [];
+    if (preds.some(p => !state.executedEvents.includes(p))) continue;
 
     // Match arg tokens against target
     let score = 0;
@@ -1516,7 +1672,19 @@ function handleMove(target) {
   const cur = currentLoc();
   if (!cur || !cur.adjacent.includes(loc.id)) {
     dmLog("move", "rejected move: " + loc.name + " not adjacent", "");
-    addLog("You'd have to pass through somewhere else first. " + loc.name + " isn't directly reachable from " + (cur ? cur.name : "here") + ".", "outcome");
+    // Find a one-hop intermediary to suggest
+    let via = null;
+    if (cur) {
+      for (const adjId of cur.adjacent) {
+        const adjLoc = DATA.locations[adjId];
+        if (adjLoc && adjLoc.adjacent && adjLoc.adjacent.includes(loc.id)) { via = adjLoc; break; }
+      }
+    }
+    const viaStr = via ? ` — you'd need to pass through ${via.name} first` : "";
+    addLog(
+      `You cannot reach ${loc.name} directly from ${cur ? cur.name : "here"}${viaStr}. Use the exits on the left panel to navigate.`,
+      "outcome"
+    );
     return;
   }
   state.lastLocation = state.location;
@@ -1545,15 +1713,18 @@ function handleExamine(target) {
   // Maybe user is pointing at evidence here, just not the right kind of examine
   const loc = currentLoc();
   if (loc) {
-    for (const eid of loc.evidence) {
+    for (const rawEid of loc.evidence) {
+      const eid = _normEvidenceId(rawEid);
       const e = DATA.evidence[eid];
       if (!e) continue;
-      for (const a of (e.aliases || [])) {
-        if (target.toLowerCase().includes(a)) {
-          dmLog("consistent", "examined " + eid + " in-place (no new plan event)", "requires specialist elsewhere");
-          addLog("You peer at the " + truncate(e.description, 50) + ", but nothing new reveals itself. Perhaps a specialist could analyze it elsewhere.", "outcome");
-          return;
-        }
+      const tgtLow = target.toLowerCase();
+      const descWords = (e.description || "").toLowerCase().split(/\W+/).filter(w => w.length > 3);
+      const aliasMatch = (e.aliases || []).some(a => tgtLow.includes(a));
+      const descMatch = descWords.some(w => tgtLow.includes(w));
+      if (aliasMatch || descMatch) {
+        dmLog("consistent", "examined " + eid + " in-place (no new plan event)", "no plan effect");
+        addLog("You examine the " + truncate(e.description, 60) + ", but nothing new reveals itself here.", "outcome");
+        return;
       }
     }
   }
@@ -1668,15 +1839,115 @@ function handleDestroy(target) {
   addLog("You reach to tamper with " + target + ", but catch yourself. An inspector who destroys evidence is no inspector at all. (The drama manager has intervened — your story still has a path to the truth.)", "exception");
 }
 
+// -------------------- API mode dispatch --------------------
+async function _runCommandViaAPI(raw, forceEventId) {
+  const cmdEl   = document.getElementById("cmd");
+  const submitEl = document.querySelector("#input-form button[type=submit]");
+  cmdEl.disabled = true;
+  if (submitEl) submitEl.disabled = true;
+  try {
+    const base = API_URL || "";
+    const body = {command: raw};
+    if (forceEventId) body.force_event_id = forceEventId;
+    const resp = await fetch(base + "/api/step", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) throw new Error("Server " + resp.status);
+    const data = await resp.json();
+
+    for (const e of (data.log_entries || [])) {
+      const txt = e.as_html ? highlightText(e.text) : e.text;
+      addLog(txt, e.cls || "outcome", e.title || null, e.as_html || false);
+    }
+    if (data.triggered_event_id &&
+        !state.executedEvents.includes(data.triggered_event_id)) {
+      state.executedEvents.push(data.triggered_event_id);
+    }
+    if (data.moved_to) {
+      state.lastLocation = state.location;
+      state.location = data.moved_to;
+    }
+    for (const k of (data.new_knowledge || [])) {
+      if (!state.knowledge.includes(k)) state.knowledge.push(k);
+    }
+    for (const [eid, flags] of Object.entries(data.new_evidence_flags || {})) {
+      if (!state.evidenceFlags[eid]) state.evidenceFlags[eid] = {};
+      Object.assign(state.evidenceFlags[eid], flags);
+    }
+    for (const cid of (data.characters_encountered || [])) encounter(cid);
+    for (const cid of (data.characters_interviewed || [])) {
+      if (!state.charactersInterviewed.includes(cid))
+        state.charactersInterviewed.push(cid);
+    }
+    if (data.dm_entry) {
+      state.dmLog.push({
+        turn: state.turns,
+        kind:        data.dm_entry.kind || "consistent",
+        summary:     data.dm_entry.summary || "",
+        detail:      data.dm_entry.detail || "",
+        // extra fields for minimal view
+        event_desc:  data.dm_entry.event_desc  || "",
+        plan_change: data.dm_entry.plan_change || "",
+        goal_verdict:data.dm_entry.goal_verdict|| "",
+        reveals:     data.dm_entry.reveals     || [],
+        remaining_after: data.dm_entry.remaining_after ?? null,
+        t: Date.now(),
+      });
+      if (state.dmLog.length > 200) state.dmLog.shift();
+    }
+    if (data.game_over) state.gameOver = true;
+  } catch (err) {
+    addLog("(LLM server error: " + err.message + ". Check the Colab notebook.)", "system");
+  } finally {
+    cmdEl.disabled = false;
+    if (submitEl) submitEl.disabled = false;
+    cmdEl.focus();
+  }
+}
+
 // -------------------- dispatch --------------------
-function runCommand(raw) {
+async function runCommand(raw, forceEventId) {
+  forceEventId = forceEventId || null;
   if (state.gameOver) {
     addLog("The case is already closed. Press Reset to begin a new investigation.", "system");
     return;
   }
   addLog(raw, "user");
   state.turns += 1;
+
   const action = interpret(raw);
+  const isAccuse = action.verb === "accuse";
+
+  if (API_URL !== null && !isAccuse) {
+    await _runCommandViaAPI(raw, forceEventId);
+    saveState();
+    renderSidebar();
+    renderHints();
+    const g = document.getElementById("guide-content");
+    if (g && !g.classList.contains("hidden")) renderGuide();
+    const d = document.getElementById("dmlog-content");
+    if (d && !d.classList.contains("hidden")) renderDmLog();
+    return;
+  }
+
+  // JS-only path: if a plan event ID was forced (hint chip), execute directly.
+  if (forceEventId && DATA.events[forceEventId]) {
+    const forcedEv = DATA.events[forceEventId];
+    if (!state.executedEvents.includes(forceEventId) && forcedEv.location === state.location) {
+      executeEvent(forcedEv);
+      saveState();
+      renderSidebar();
+      renderHints();
+      const g = document.getElementById("guide-content");
+      if (g && !g.classList.contains("hidden")) renderGuide();
+      const d = document.getElementById("dmlog-content");
+      if (d && !d.classList.contains("hidden")) renderDmLog();
+      return;
+    }
+  }
+
   switch (action.verb) {
     case "noop":    break;
     case "quit":    addLog("You step back from the case. Press Reset to start over.", "system"); break;
@@ -1717,11 +1988,28 @@ document.getElementById("input-form").addEventListener("submit", (e) => {
   if (!raw.trim()) return;
   // Enforce 8-word ceiling like the backend engine
   const words = raw.trim().split(/\s+/).slice(0, 8);
-  runCommand(words.join(" "));
+  const finalRaw = words.join(" ");
+  // Use stored hint force-event only if the player submitted without editing
+  let forceId = null;
+  if (_hintEventId && _hintCmd && finalRaw.toLowerCase() === _hintCmd.toLowerCase()) {
+    forceId = _hintEventId;
+  }
+  _hintEventId = null;
+  _hintCmd = null;
+  runCommand(finalRaw, forceId);
 });
 
-document.getElementById("reset-btn").addEventListener("click", () => {
+// Clear pending hint state whenever the player types in the box
+document.getElementById("cmd").addEventListener("input", () => {
+  _hintEventId = null;
+  _hintCmd = null;
+});
+
+document.getElementById("reset-btn").addEventListener("click", async () => {
   if (!confirm("Start a new investigation? Your current progress will be lost.")) return;
+  if (API_URL !== null) {
+    try { await fetch((API_URL || "") + "/api/new_game", {method: "POST"}); } catch (_) {}
+  }
   localStorage.removeItem(STORAGE_KEY);
   state = freshState();
   logEl.innerHTML = "";
@@ -1732,49 +2020,81 @@ document.getElementById("reset-btn").addEventListener("click", () => {
   document.getElementById("cmd").focus();
 });
 
-// Toggle the hints panel open/closed.
-document.getElementById("hints-toggle").addEventListener("click", () => {
-  const tog = document.getElementById("hints-toggle");
-  const box = document.getElementById("hints-content");
-  const open = box.classList.toggle("hidden");
-  if (open) {
-    tog.classList.remove("open");
-    tog.textContent = "💡 Stuck? Show hints";
-  } else {
-    tog.classList.add("open");
-    tog.textContent = "💡 Hide hints";
-    renderHints();  // refresh on open
-  }
+// Mutually-exclusive toggle helpers — opening one panel closes the others.
+const _PANELS = [
+  { toggleId: "hints-toggle",  contentId: "hints-content",  labelClose: "💡 Hide hints",       labelOpen: "💡 Stuck? Show hints",     onOpen: () => renderHints() },
+  { toggleId: "guide-toggle",  contentId: "guide-content",  labelClose: "🗺️ Hide guide",        labelOpen: "🗺️ Where next?",           onOpen: () => renderGuide() },
+  { toggleId: "dmlog-toggle",  contentId: "dmlog-content",  labelClose: "🎬 Hide DM log",       labelOpen: "🎬 Drama Manager log",      onOpen: () => renderDmLog() },
+];
+function _closeAllPanels(exceptId) {
+  _PANELS.forEach(p => {
+    if (p.contentId === exceptId) return;
+    const box = document.getElementById(p.contentId);
+    const tog = document.getElementById(p.toggleId);
+    if (box && !box.classList.contains("hidden")) {
+      box.classList.add("hidden");
+      if (tog) { tog.classList.remove("open"); tog.textContent = p.labelOpen; }
+    }
+    // Hide verbose label when DM log closes
+    if (p.contentId === "dmlog-content") {
+      const lbl = document.getElementById("dm-verbose-label");
+      if (lbl) lbl.style.display = "none";
+    }
+  });
+}
+_PANELS.forEach(p => {
+  const tog = document.getElementById(p.toggleId);
+  if (!tog) return;
+  tog.addEventListener("click", () => {
+    const box = document.getElementById(p.contentId);
+    const isHidden = box.classList.contains("hidden");
+    _closeAllPanels(null); // close everything first
+    if (isHidden) {
+      box.classList.remove("hidden");
+      tog.classList.add("open");
+      tog.textContent = p.labelClose;
+      if (p.contentId === "dmlog-content") {
+        const lbl = document.getElementById("dm-verbose-label");
+        if (lbl) lbl.style.display = "";
+      }
+      p.onOpen();
+    }
+  });
 });
 
-// Toggle the global "Where next?" guide.
-document.getElementById("guide-toggle").addEventListener("click", () => {
-  const tog = document.getElementById("guide-toggle");
-  const box = document.getElementById("guide-content");
-  const hidden = box.classList.toggle("hidden");
-  if (hidden) {
-    tog.classList.remove("open");
-    tog.textContent = "🗺️ Where next?";
-  } else {
-    tog.classList.add("open");
-    tog.textContent = "🗺️ Hide guide";
-    renderGuide();
-  }
+// Verbose / minimal toggle checkbox for DM log.
+document.getElementById("dm-verbose-chk").addEventListener("change", (e) => {
+  dmVerbose = e.target.checked;
+  renderDmLog();
 });
 
-// Toggle the Drama Manager log panel.
-document.getElementById("dmlog-toggle").addEventListener("click", () => {
-  const tog = document.getElementById("dmlog-toggle");
-  const box = document.getElementById("dmlog-content");
-  const hidden = box.classList.toggle("hidden");
-  if (hidden) {
-    tog.classList.remove("open");
-    tog.textContent = "🎬 Drama Manager log";
-  } else {
-    tog.classList.add("open");
-    tog.textContent = "🎬 Hide DM log";
-    renderDmLog();
+// -------------------- novel overlay --------------------
+function _mdToHtml(md) {
+  // Minimal markdown renderer: headings, bold, italic, paragraphs, line breaks.
+  const s = md
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/^#{3}\s+(.*)$/gm,"<h3>$1</h3>")
+    .replace(/^#{2}\s+(.*)$/gm,"<h2>$1</h2>")
+    .replace(/^#\s+(.*)$/gm,"<h1>$1</h1>")
+    .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g,"<em>$1</em>")
+    .replace(/\n{2,}/g,"</p><p>")
+    .replace(/\n/g,"<br>");
+  return "<p>" + s + "</p>";
+}
+document.getElementById("novel-btn").addEventListener("click", () => {
+  const story = DATA.story_text || "";
+  if (!story.trim()) {
+    alert("No story text available.");
+    return;
   }
+  document.getElementById("novel-content").innerHTML = _mdToHtml(story);
+  document.getElementById("novel-overlay").style.display = "block";
+  document.body.style.overflow = "hidden";
+});
+document.getElementById("novel-close").addEventListener("click", () => {
+  document.getElementById("novel-overlay").style.display = "none";
+  document.body.style.overflow = "";
 });
 
 function greet() {

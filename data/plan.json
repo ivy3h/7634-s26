@@ -1349,6 +1349,18 @@
           "value": "synchronized_arrests_executed_successfully"
         },
         {
+          "subject": "detective",
+          "attr": "knowledge",
+          "op": "add",
+          "value": "identified:character.vivienne_ashford"
+        },
+        {
+          "subject": "detective",
+          "attr": "knowledge",
+          "op": "add",
+          "value": "linked_evidence:character.vivienne_ashford"
+        },
+        {
           "subject": "character.vivienne_ashford",
           "attr": "arrested",
           "op": "set",
