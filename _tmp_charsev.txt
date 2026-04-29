@@ -1,0 +1,50 @@
+  const charsEl = document.getElementById("characters-here");
+  charsEl.innerHTML = "";
+  const here = loc ? loc.characters : [];
+  const aliveHere = here.filter(cid => { const c = DATA.characters[cid]; return c && c.alive; });
+  const deadHere  = here.filter(cid => { const c = DATA.characters[cid]; return c && !c.alive; });
+  if (!aliveHere.length && !deadHere.length) {
+    charsEl.innerHTML = '<li class="muted">(no-one of interest)</li>';
+  } else {
+    deadHere.forEach(cid => {
+      const c = DATA.characters[cid];
+      const li = document.createElement("li");
+      li.innerHTML = '<em style="color:var(--muted)">†&nbsp;' + c.name + ' — victim\'s body</em>';
+      charsEl.appendChild(li);
+    });
+    aliveHere.forEach(cid => {
+      const c = DATA.characters[cid];
+      const li = document.createElement("li");
+      li.textContent = c.name;
+      charsEl.appendChild(li);
+    });
+  }
+
+  const evEl = document.getElementById("evidence-here");
+  evEl.innerHTML = "";
+  const evHere = loc ? loc.evidence : [];
+  if (!evHere.length) {
+    evEl.innerHTML = '<li class="muted">(nothing catches the eye)</li>';
+  } else {
+    evHere.forEach(rawEid => {
+      const eid = _normEvidenceId(rawEid);
+      const e = DATA.evidence[eid];
+      if (!e) return;
+      const li = document.createElement("li");
+      const flag = state.evidenceFlags[eid] || {};
+      const short = truncate(e.description, 80);
+      if (flag.discovered) {
+        li.textContent = "☑ " + short;
+        if (flag.destroyed) li.style.textDecoration = "line-through";
+      } else {
+        li.textContent = "☐ " + short;
+        li.className = "muted";
+      }
+      evEl.appendChild(li);
+    });
+  }
+
+  const kEl = document.getElementById("knowledge");
+  kEl.innerHTML = "";
+  if (!state.knowledge.length) {
+    kEl.inn

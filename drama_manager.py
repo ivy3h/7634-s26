@@ -273,11 +273,26 @@ class DramaManager:
 
         classification = self._decide_classification(constituent_match, hard_violations, soft_threats, cs_hint)
 
+        # Subtype distinguishes how the exception should be handled:
+        # hard_block  — destructive verb with no constituent match; effects must NOT be applied
+        # causal_violation — a formal causal-link constraint was broken
+        # soft_threat — commonsense LLM reasoned the action threatens future events
+        if classification == "exceptional":
+            if is_destructive and not constituent_match:
+                exceptional_subtype: str = "hard_block"
+            elif hard_violations:
+                exceptional_subtype = "causal_violation"
+            else:
+                exceptional_subtype = "soft_threat"
+        else:
+            exceptional_subtype = "none"
+
         result = {
             "classification": classification,
             "matched_event_id": constituent_match,
             "hard_violations": [cl.to_dict() for cl in hard_violations],
             "soft_threats": soft_threats,
+            "exceptional_subtype": exceptional_subtype,
         }
         self._log(
             "classification",
@@ -326,12 +341,13 @@ class DramaManager:
                 chars_here = set(loc_obj.characters) if loc_obj else set()
                 ev_chars = {str(a) for a in ev.args if str(a).startswith("character.")}
                 if ev_chars:
-                    available_here = {
+                    # Require only that the character is alive (not "available") so a
+                    # prior interview with the same character doesn't block later events.
+                    alive_here = {
                         cid for cid in chars_here
                         if state.get(cid, {}).get("alive", True)
-                        and state.get(cid, {}).get("available", True)
                     }
-                    if not ev_chars & available_here:
+                    if not ev_chars & alive_here:
                         continue
 
             ev_verb = ev.verb.lower()
@@ -540,6 +556,7 @@ class DramaManager:
         ]
         self._log(
             "accommodation",
+            triggering_command=parsed_action.get("_raw", ""),
             removed_events=removed_events,
             removed_descriptions=[
                 self.plan.events[eid].description for eid in removed_events if eid in self.plan.events

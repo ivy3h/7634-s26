@@ -44,7 +44,104 @@ _html_cache: str | None = None
 DATA_DIR = ROOT / "data"
 
 
+def _normalize_plan_world() -> None:
+    """Normalize character IDs across plan.json + world.json so backend and
+    frontend always reference the same canonical character IDs.
+
+    build_game.py performs the same remap in-memory (for the browser data
+    blob) but never persists it.  Running this once after plan/world
+    generation ensures the game engine reads the same IDs the browser shows.
+
+    The normalization is idempotent: a `_char_normalized` flag in plan.json
+    prevents it from running more than once per generated mystery.
+    """
+    import re as _re
+
+    plan_path  = DATA_DIR / "plan.json"
+    world_path = DATA_DIR / "world.json"
+    case_path  = DATA_DIR / "case_file.json"
+
+    if not all(p.exists() for p in [plan_path, world_path, case_path]):
+        return
+
+    try:
+        plan  = json.loads(plan_path.read_text(encoding="utf-8"))
+        world = json.loads(world_path.read_text(encoding="utf-8"))
+        case  = json.loads(case_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+
+    if plan.get("_char_normalized"):
+        return
+
+    # ── 1. Canonical character set from initial_state ──────────────────────
+    chars: dict = {
+        k: v for k, v in plan.get("initial_state", {}).items()
+        if k.startswith("character.")
+    }
+
+    # ── 2. Ensure criminal is in the set ──────────────────────────────────
+    crim_name = (case.get("criminal") or {}).get("name", "")
+    if crim_name:
+        crim_id = "character." + _re.sub(r"\W+", "_", crim_name.lower()).strip("_")
+        if crim_id not in chars:
+            entry: dict = {"name": crim_name, "alive": True, "available": True,
+                           "role": "associate"}
+            chars[crim_id] = entry
+            plan.setdefault("initial_state", {})[crim_id] = entry
+
+    # ── 3. First-name lookup ───────────────────────────────────────────────
+    by_first: dict[str, list[str]] = {}
+    for cid, fields in chars.items():
+        name = fields.get("name") or cid.split(".", 1)[-1].replace("_", " ").title()
+        first = (_re.split(r"\W+", name.lower()) + [""])[0]
+        if first:
+            by_first.setdefault(first, []).append(cid)
+
+    # ── 4. Collect all character IDs used in events & location lists ───────
+    all_ids: set[str] = set()
+    for ev in plan.get("events", {}).values():
+        for a in ev.get("args", []):
+            if isinstance(a, str) and a.startswith("character."):
+                all_ids.add(a)
+    for loc in world.get("locations", {}).values():
+        for c in loc.get("characters", []):
+            if isinstance(c, str) and c.startswith("character."):
+                all_ids.add(c)
+
+    # ── 5. Build remap; register unmappable IDs so engine gets a name ─────
+    remap: dict[str, str] = {}
+    for bad_id in all_ids:
+        if bad_id in chars:
+            continue
+        body  = bad_id.split(".", 1)[-1]
+        first = body.split("_", 1)[0]
+        candidates = by_first.get(first, [])
+        if len(candidates) == 1:
+            remap[bad_id] = candidates[0]
+        else:
+            # No unique match — register the character directly
+            name = body.replace("_", " ").title()
+            entry = {"name": name, "alive": True, "available": True, "role": "associate"}
+            chars[bad_id] = entry
+            plan.setdefault("initial_state", {})[bad_id] = entry
+
+    # ── 6. Apply remap to events and location character lists ─────────────
+    if remap:
+        for ev in plan.get("events", {}).values():
+            ev["args"] = [remap.get(a, a) if isinstance(a, str) else a
+                          for a in ev.get("args", [])]
+        for loc in world.get("locations", {}).values():
+            loc["characters"] = [remap.get(c, c) for c in loc.get("characters", [])]
+
+    # ── 7. Persist ────────────────────────────────────────────────────────
+    plan["_char_normalized"] = True
+    plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+    world_path.write_text(json.dumps(world, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def _make_engine() -> GameEngine:
+    _normalize_plan_world()   # idempotent; persists canonical character IDs
     plan = load_plan(str(DATA_DIR / "plan.json"))
     world = load_world(str(DATA_DIR / "world.json"))
     detective_name = "Inspector Rothwell"

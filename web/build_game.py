@@ -754,6 +754,9 @@ function freshState() {
     dmLog: [],                    // behind-the-scenes drama-manager decision trail
     turns: 0,
     gameOver: false,
+    sceneCharacters: null,       // API-authoritative alive+available chars at current loc
+    sceneEvidence: null,         // API-authoritative non-destroyed evidence at current loc
+    scenePendingLeads: [],       // canonical commands for ready plan events at current loc
   };
 }
 
@@ -1291,9 +1294,13 @@ function renderSidebar() {
 
   const charsEl = document.getElementById("characters-here");
   charsEl.innerHTML = "";
-  const here = loc ? loc.characters : [];
-  const aliveHere = here.filter(cid => { const c = DATA.characters[cid]; return c && c.alive; });
-  const deadHere  = here.filter(cid => { const c = DATA.characters[cid]; return c && !c.alive; });
+  const staticLocChars = loc ? (loc.characters || []) : [];
+  // In API mode, use server-authoritative alive+available list; dead characters (victims)
+  // always come from the static location data since the API filters them out.
+  const aliveHere = (API_URL !== null && state.sceneCharacters != null)
+    ? state.sceneCharacters.filter(cid => { const c = DATA.characters[cid]; return c && c.alive; })
+    : staticLocChars.filter(cid => { const c = DATA.characters[cid]; return c && c.alive; });
+  const deadHere  = staticLocChars.filter(cid => { const c = DATA.characters[cid]; return c && !c.alive; });
   if (!aliveHere.length && !deadHere.length) {
     charsEl.innerHTML = '<li class="muted">(no-one of interest)</li>';
   } else {
@@ -1306,33 +1313,89 @@ function renderSidebar() {
     aliveHere.forEach(cid => {
       const c = DATA.characters[cid];
       const li = document.createElement("li");
-      li.textContent = c.name;
+      if (state.charactersInterviewed.includes(cid)) {
+        li.innerHTML = '<s style="color:var(--muted)">' + _escapeHtml(c.name) + '</s>'
+          + ' <span style="color:var(--muted);font-size:0.82em">(spoke with)</span>';
+      } else {
+        li.textContent = c.name;
+      }
       charsEl.appendChild(li);
     });
   }
 
   const evEl = document.getElementById("evidence-here");
   evEl.innerHTML = "";
-  const evHere = loc ? loc.evidence : [];
-  if (!evHere.length) {
-    evEl.innerHTML = '<li class="muted">(nothing catches the eye)</li>';
-  } else {
-    evHere.forEach(rawEid => {
-      const eid = _normEvidenceId(rawEid);
-      const e = DATA.evidence[eid];
-      if (!e) return;
-      const li = document.createElement("li");
-      const flag = state.evidenceFlags[eid] || {};
-      const short = truncate(e.description, 80);
-      if (flag.discovered) {
-        li.textContent = "☑ " + short;
-        if (flag.destroyed) li.style.textDecoration = "line-through";
-      } else {
-        li.textContent = "☐ " + short;
-        li.className = "muted";
+  // In API mode, use server-authoritative non-destroyed evidence list for this location.
+  const evHere = (API_URL !== null && state.sceneEvidence != null)
+    ? state.sceneEvidence.map(_normEvidenceId)
+    : (loc ? loc.evidence : []);
+
+  // Parse pending leads to find analyze/search targets for state annotations.
+  const _sceneLeads = (API_URL !== null) ? (state.scenePendingLeads || []) : [];
+  const _analyzeMap = {};   // tgt → covered (bool); populated from "analyze X" leads
+  const _otherLeads = [];   // {target} for non-question/non-go/non-analyze leads
+  _sceneLeads.forEach(cmd => {
+    const m = cmd.match(/^(\w+)\s+(.+)/i);
+    if (!m) return;
+    const verb = m[1].toLowerCase(), tgt = m[2].toLowerCase();
+    if (verb === "analyze" || verb === "examine") {
+      _analyzeMap[tgt] = false;
+    } else if (verb !== "question" && verb !== "go" && verb !== "move") {
+      _otherLeads.push(tgt);
+    }
+  });
+  const _evMatchesTgt = (eid, tgt) => {
+    const e = DATA.evidence[eid];
+    if (!e) return false;
+    const hay = ((e.name||"") + " " + (e.description||"") + " " + eid).toLowerCase();
+    return hay.includes(tgt) || tgt.split(/\s+/).some(w => w.length > 3 && hay.includes(w));
+  };
+
+  evHere.forEach(rawEid => {
+    const eid = _normEvidenceId(rawEid);
+    const e = DATA.evidence[eid];
+    if (!e) return;
+    const li = document.createElement("li");
+    const flag = state.evidenceFlags[eid] || {};
+    const short = truncate(e.description, 80);
+    const matchedTgt = Object.keys(_analyzeMap).find(tgt => _evMatchesTgt(eid, tgt));
+    if (matchedTgt !== undefined) _analyzeMap[matchedTgt] = true;
+
+    if (flag.destroyed) {
+      li.innerHTML = '<s style="color:var(--muted)">☑ ' + _escapeHtml(short) + '</s>';
+    } else if (flag.discovered) {
+      let ann = "";
+      if (flag.analyzed) {
+        ann = ' <span style="color:var(--muted);font-size:0.82em">(analyzed)</span>';
+      } else if (matchedTgt !== undefined) {
+        ann = ' <span style="color:var(--muted);font-size:0.82em">(pending analysis)</span>';
       }
+      li.innerHTML = "☑ " + _escapeHtml(short) + ann;
+    } else {
+      li.textContent = "☐ " + short;
+      li.className = "muted";
+    }
+    evEl.appendChild(li);
+  });
+  // Uncovered analyze targets — evidence not yet in the scene list
+  Object.entries(_analyzeMap).forEach(([tgt, covered]) => {
+    if (covered) return;
+    const li = document.createElement("li");
+    li.textContent = "☐ " + tgt;
+    li.className = "muted";
+    evEl.appendChild(li);
+  });
+  // Other action leads (search, etc.) not already represented by evidence items
+  _otherLeads
+    .filter(tgt => !evHere.some(rawEid => _evMatchesTgt(_normEvidenceId(rawEid), tgt)))
+    .forEach(tgt => {
+      const li = document.createElement("li");
+      li.textContent = "☐ " + tgt;
+      li.className = "muted";
       evEl.appendChild(li);
     });
+  if (!evEl.children.length) {
+    evEl.innerHTML = '<li class="muted">(nothing catches the eye)</li>';
   }
 
   const kEl = document.getElementById("knowledge");
@@ -1898,6 +1961,9 @@ async function _runCommandViaAPI(raw, forceEventId) {
       if (state.dmLog.length > 200) state.dmLog.shift();
     }
     if (data.game_over) state.gameOver = true;
+    if (data.scene_characters != null) state.sceneCharacters = data.scene_characters;
+    if (data.scene_evidence  != null) state.sceneEvidence  = data.scene_evidence;
+    if (data.scene_leads     != null) state.scenePendingLeads = data.scene_leads;
   } catch (err) {
     addLog("(LLM server error: " + err.message + ". Check the Colab notebook.)", "system");
   } finally {

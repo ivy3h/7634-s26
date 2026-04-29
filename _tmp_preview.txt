@@ -1,0 +1,26 @@
+ const exitsEl = document.getElementById("exits");
+  exitsEl.innerHTML = "";
+  if (loc && loc.adjacent.length) {
+    loc.adjacent.forEach(adj => {
+      const btn = document.createElement("button");
+      btn.className = "exit-btn";
+      btn.textContent = "→ " + (DATA.locations[adj] ? DATA.locations[adj].name : adj);
+      btn.addEventListener("click", () => runCommand("go to " + (DATA.locations[adj] ? DATA.locations[adj].name : adj)));
+      exitsEl.appendChild(btn);
+    });
+  } else {
+    exitsEl.innerHTML = '<li class="muted">(no obvious exits)</li>';
+  }
+
+  const charsEl = document.getElementById("characters-here");
+  charsEl.innerHTML = "";
+  const here = loc ? loc.characters : [];
+  const aliveHere = here.filter(cid => { const c = DATA.characters[cid]; return c && c.alive; });
+  const deadHere  = here.filter(cid => { const c = DATA.characters[cid]; return c && !c.alive; });
+  if (!aliveHere.length && !deadHere.length) {
+    charsEl.innerHTML = '<li class="muted">(no-one of interest)</li>';
+  } else {
+    deadHere.forEach(cid => {
+      const c = DATA.characters[cid];
+      const li = document.createElement("li");
+      li.inn

@@ -1,0 +1,77 @@
+The Study (starting location)
+
+examine body
+→ London Streets (transit only)
+
+go to london streets
+→ Worthington Estate
+
+go to worthington estate
+question worthington
+→ Scotland Yard Forensic Laboratory (first one — between Worthington and Hartley's Study)
+
+go to scotland yard forensic laboratory
+analyze ring
+→ Hartley's Study
+
+go to hartley's study
+search desk
+→ The Athenaeum Club
+
+go to the athenaeum club
+question sutherland
+→ Lady Beatrice's Mayfair Residence
+
+go to lady beatrice's mayfair residence
+question worthington
+→ The Drawing Room
+
+go to the drawing room
+question hartley
+→ The Grand Imperial Hotel
+
+go to the grand imperial hotel
+question rossi
+→ Security Office
+
+go to security office
+analyze security footage
+analyze phone records
+→ Riverside Golf Club
+
+go to riverside golf club
+question fenwick
+→ Scotland Yard Forensic Laboratory (second one — between Riverside and Gallery Furnace)
+
+go to scotland yard forensic laboratory
+analyze champagne glass
+→ Gallery Furnace Room
+
+go to gallery furnace room
+search furnace
+→ Scotland Yard (via Gallery Furnace Room — police_station)
+
+go to scotland yard
+consult interpol
+→ London Streets → Dr. Ashworth's Home Office (two hops)
+
+go to london streets
+go to dr ashworth's home office
+question pathologist
+→ Scotland Yard Interrogation Room
+
+go to scotland yard interrogation room
+question pemberton
+→ London Streets → Gallery Office (two hops)
+
+go to london streets
+go to gallery office
+search desk
+→ Scotland Yard (via Gallery Office — police_precinct)
+
+go to scotland yard
+examine telegram
+→ Ashford Townhouse
+
+go to ashford townhouse
+question ashford

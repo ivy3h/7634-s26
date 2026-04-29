@@ -24,8 +24,8 @@ PARSE_SYSTEM = """You are an action interpreter for a text adventure. Convert th
 PARSE_PROMPT = """World summary:
   Player location: {player_location}
   Adjacent locations: {adjacent}
-  Objects here: {here_objects}
-  Characters here: {here_characters}
+  Objects here (ONLY valid examination/search targets): {here_objects}
+  Characters here (ONLY valid interview/question targets): {here_characters}
   Known evidence ids: {evidence_ids}
   Player inventory: {inventory}
   Player knowledge snippets (partial): {knowledge_snippets}
@@ -54,13 +54,20 @@ Produce this JSON:
 }}
 
 Critical rules:
-- For movement, set verb="move" and fill target_location with an adjacent id.
+- SCENE BOUNDARIES (highest priority): Only target entities actually present in the current scene.
+  Characters you may interact with: ONLY those listed in "Characters here".
+  Objects/evidence you may examine or search: ONLY those listed in "Objects here".
+  If the player's command names a character NOT in "Characters here", set verb="custom",
+  args=[], effects=[], and plain_summary="<CharacterName> is not here right now."
+  If the player tries to interact with an object/place not in this scene, do the same.
+- For movement, set verb="move" and fill target_location with an adjacent location id from "Adjacent locations".
+  Do NOT set target_location to a non-adjacent location.
 - For any physical manipulation that creates a NEW persistent state on an object
   (jamming, breaking, locking, hiding, destroying), list that state under
   "novel_state_vars" in addition to listing it in effects. This tells the
   drama manager the action introduced a state slot not previously modeled.
 - If the player tries to "accuse" or "arrest" someone, add an effect updating
-  detective.knowledge by adding "accused:<character.id>".
+  detective.knowledge by adding "accused:<character.id>". Accusation is always allowed.
 - Keep preconditions minimal — usually just where the player and target must be."""
 
 

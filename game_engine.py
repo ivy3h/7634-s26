@@ -126,13 +126,86 @@ class GameEngine:
         lines.append("===================")
         return "\n".join(lines)
 
+    def _next_hint_cmd(self) -> str | None:
+        """Return the exact command string for the next actionable plan event.
+
+        Format matches frontend hint chips: 'question surname', 'examine target',
+        'go to location'. Respects predecessor ordering so the hint is always
+        for an event whose prerequisites are already satisfied.
+        """
+        loc_id = self.state["detective"]["location"]
+        executed = set(self.drama.executed)
+        _social = frozenset({"interview", "consult", "visit", "confront", "question", "meet"})
+
+        # First pass: look for ready events AT the current location.
+        for eid in self.drama.remaining:
+            ev = self.plan.events.get(eid)
+            if not ev or ev.location != loc_id:
+                continue
+            required = self.drama._predecessors.get(eid, set())
+            if required and not required.issubset(executed):
+                continue
+            verb = ev.verb
+            if verb == "investigate":
+                verb = "search"
+            first_char: str | None = None
+            first_obj: str | None = None
+            for arg in ev.args:
+                s = str(arg)
+                if s.startswith("location."):
+                    continue
+                if s.startswith("character.") and first_char is None:
+                    first_char = s
+                elif first_obj is None:
+                    first_obj = s
+            if first_char:
+                if verb in _social:
+                    verb = "question"
+                name = self.state.get(first_char, {}).get("name", "")
+                surname = name.split()[-1].lower() if name else first_char.split(".")[-1]
+                return f"{verb} {surname}"
+            if first_obj:
+                pretty = re.sub(r"^(?:object|evidence)\.", "", first_obj)
+                pretty = pretty.replace("_", " ").strip().lower()
+                words = pretty.split()[:3]
+                return f"{verb} {' '.join(words)}"
+            return verb  # no useful arg — just the verb
+
+        # Second pass: suggest moving toward the nearest location with pending work.
+        for eid in self.drama.remaining:
+            ev = self.plan.events.get(eid)
+            if not ev or not ev.location or ev.location == loc_id:
+                continue
+            required = self.drama._predecessors.get(eid, set())
+            if required and not required.issubset(executed):
+                continue
+            dest_loc = self.world.locations.get(ev.location)
+            if dest_loc:
+                dest_alias = dest_loc.name.lower().replace("'", "").strip()
+                return f"go to {dest_alias}"
+
+        return None
+
     def _pending_event_hint(self, raw: str, loc_id: str) -> str | None:
-        """Return a hint when the player mentioned a character with pending plan events.
-        Returns None if the hint would just repeat what the player already typed."""
+        """Return a HINT_CMD chip when the player mentioned a character that has a
+        pending plan event at the current location.
+
+        Format: 'HINT_CMD:question surname' — matches the frontend chip format
+        produced by buildHintCommands() so clicking the chip or typing the command
+        both reliably trigger the plan event.
+
+        Returns None if the hint would just repeat what the player already typed,
+        or if all prerequisite events haven't fired yet.
+        """
         raw_lower = raw.lower()
+        executed = set(self.drama.executed)
         for eid in self.drama.remaining:
             ev = self.plan.events.get(eid)
             if not ev:
+                continue
+            # Require predecessor ordering to be satisfied.
+            required = self.drama._predecessors.get(eid, set())
+            if required and not required.issubset(executed):
                 continue
             for arg in ev.args:
                 if not str(arg).startswith("character."):
@@ -142,18 +215,18 @@ class GameEngine:
                     continue
                 if not any(tok in raw_lower for tok in char_name.lower().split() if len(tok) > 2):
                     continue
+                # Use "question" for all social verbs (matches frontend normalization).
                 verb = "question" if ev.verb not in {"examine", "search", "analyze"} else ev.verb
-                surname = char_name.split()[-1]
-                cmd = f"{verb} {surname}".lower()
-                # Suppress if this is exactly what the player just typed
+                surname = char_name.split()[-1].lower()
+                cmd = f"{verb} {surname}"
+                # Suppress if this is exactly what the player just typed.
                 if raw_lower.strip().startswith(cmd) or cmd in raw_lower:
                     return None
                 if ev.location == loc_id:
-                    # Use a special prefix so the JS can render this as a button
                     return f"HINT_CMD:{cmd}"
                 loc = self.world.locations.get(ev.location or "")
                 loc_name = loc.name if loc else ev.location
-                return f"Head to {loc_name} to follow up on {char_name}."
+                return f"Head to {loc_name} to follow up with {char_name}."
         return None
 
     def _char_name(self, cid: str) -> str:
@@ -278,7 +351,69 @@ class GameEngine:
         accommodation_result: dict[str, Any] | None = None
         triggered_event_id: str | None = None
         tag = classification["classification"]
+        subtype = classification.get("exceptional_subtype", "none")
 
+        # ---- Guard 1: absent-entity interaction --------------------------------
+        # Check BEFORE applying any effects so nothing leaks into world state.
+        # Constituent matches already enforce location + character-presence, so
+        # this only fires for consistent / exceptional (non-plan) actions.
+        if tag in ("consistent", "exceptional"):
+            absent_info = self._find_absent_target(parsed)
+            if absent_info is not None:
+                char_name_absent, where_absent = absent_info
+                msg = f"{char_name_absent} isn't here right now."
+                if where_absent:
+                    msg += f" You might find them at {where_absent}."
+                self._log_turn(turn, raw, parsed, classification, [], None, msg)
+                next_cmd = self._next_hint_cmd()
+                out_entries: list[dict[str, Any]] = [
+                    {"text": msg, "cls": "outcome", "title": None, "as_html": False}
+                ]
+                if next_cmd:
+                    out_entries.append({
+                        "text": _hint_chip_html(next_cmd),
+                        "cls": "system", "title": None, "as_html": True,
+                    })
+                sc_chars, sc_ev = self._scene_state()
+                return {
+                    "log_entries": out_entries, "triggered_event_id": None,
+                    "moved_to": None, "new_knowledge": [], "new_evidence_flags": {},
+                    "characters_encountered": [], "characters_interviewed": [],
+                    "classification": "consistent", "dm_entry": None,
+                    "game_over": False,
+                    "scene_characters": sc_chars, "scene_evidence": sc_ev,
+                    "scene_leads": self._pending_scene_leads(),
+                }
+
+        # ---- Guard 2: hard-block exceptional -----------------------------------
+        # Destructive verb with no constituent match — refuse cleanly, no effects.
+        if tag == "exceptional" and subtype == "hard_block":
+            narration = self._narrate(parsed, classification, [], None)
+            self._log_turn(turn, raw, parsed, classification, [], None, narration)
+            next_cmd = self._next_hint_cmd()
+            out_entries = [{"text": narration, "cls": "exception", "title": None, "as_html": False}]
+            if next_cmd:
+                out_entries.append({
+                    "text": _hint_chip_html(next_cmd, prefix="Try instead: "),
+                    "cls": "system", "title": None, "as_html": True,
+                })
+            sc_chars, sc_ev = self._scene_state()
+            dm_entry_hard = {
+                "kind": "exceptional",
+                "summary": "hard_block — destructive action refused, world unchanged",
+                "detail": f"command: {raw}",
+            }
+            return {
+                "log_entries": out_entries, "triggered_event_id": None,
+                "moved_to": None, "new_knowledge": [], "new_evidence_flags": {},
+                "characters_encountered": [], "characters_interviewed": [],
+                "classification": "exceptional", "dm_entry": dm_entry_hard,
+                "game_over": False,
+                "scene_characters": sc_chars, "scene_evidence": sc_ev,
+                "scene_leads": self._pending_scene_leads(),
+            }
+
+        # ---- Normal effect application ----------------------------------------
         if tag == "constituent":
             eid = classification["matched_event_id"]
             triggered_event_id = eid
@@ -288,7 +423,7 @@ class GameEngine:
             self.drama.apply_free_effects(parsed, self.state)
             self._apply_movement_if_any(parsed)
             effects_applied = parsed.get("effects", [])
-        else:  # exceptional
+        else:  # exceptional (soft_threat / causal_violation)
             self.drama.apply_free_effects(parsed, self.state)
             self._apply_movement_if_any(parsed)
             effects_applied = parsed.get("effects", [])
@@ -359,12 +494,19 @@ class GameEngine:
                             "Your notebook is full. Type 'accuse <suspect>'.",
                     "cls": "narration", "title": "— the case, fully explored —", "as_html": False,
                 })
+            # Append a hint chip pointing to the next actionable event.
+            next_cmd = self._next_hint_cmd()
+            if next_cmd and self.drama.remaining:
+                log_entries.append({
+                    "text": _hint_chip_html(next_cmd),
+                    "cls": "system", "title": None, "as_html": True,
+                })
 
         elif tag == "consistent":
             if moved_to:
                 loc = self.world.locations.get(moved_to)
-                loc_name = loc.name if loc else moved_to
-                log_entries.append({"text": f"You make your way to {loc_name}.",
+                loc_name_str = loc.name if loc else moved_to
+                log_entries.append({"text": f"You make your way to {loc_name_str}.",
                                      "cls": "system", "title": None, "as_html": False})
                 if loc:
                     log_entries.append({"text": loc.description,
@@ -388,27 +530,60 @@ class GameEngine:
                         log_entries.append({"text": " ".join(sketch),
                                              "cls": "outcome", "title": None, "as_html": False})
                     characters_encountered = list(loc.characters)
+                # Show pending investigation leads so the player knows what to do here.
+                leads = self._pending_scene_leads()
+                if leads:
+                    lead_chips = "  ".join(
+                        f'<button class="chip inline-hint" data-cmd="{_html_attr(c)}" '
+                        f'style="margin-right:4px"><span class="arrow">&gt;</span>{c}</button>'
+                        for c in leads
+                    )
+                    log_entries.append({
+                        "text": f'<span style="opacity:.75">Leads here: </span>{lead_chips}',
+                        "cls": "system", "title": None, "as_html": True,
+                    })
+                # Hint chip for the new location.
+                next_cmd = self._next_hint_cmd()
+                if next_cmd:
+                    log_entries.append({
+                        "text": _hint_chip_html(next_cmd),
+                        "cls": "system", "title": None, "as_html": True,
+                    })
             else:
                 log_entries.append({"text": narration, "cls": "outcome",
                                      "title": None, "as_html": False})
+                # Character-specific hint (e.g. player mentioned a name but used
+                # wrong location or verb).
                 hint = self._pending_event_hint(raw, self.state["detective"]["location"])
                 if hint:
                     if hint.startswith("HINT_CMD:"):
                         cmd = hint[len("HINT_CMD:"):]
-                        hint_html = (
-                            f'<span style="opacity:.75">You might try: </span>'
-                            f'<button class="chip inline-hint" data-cmd="{cmd}" '
-                            f'style="margin-left:4px"><span class="arrow">&gt;</span>{cmd}</button>'
-                        )
-                        log_entries.append({"text": hint_html, "cls": "system",
-                                             "title": None, "as_html": True})
+                        log_entries.append({
+                            "text": _hint_chip_html(cmd, prefix="You might try: "),
+                            "cls": "system", "title": None, "as_html": True,
+                        })
                     else:
                         log_entries.append({"text": hint, "cls": "system",
                                              "title": None, "as_html": False})
+                else:
+                    # General next-step hint when character-specific one isn't applicable.
+                    next_cmd = self._next_hint_cmd()
+                    if next_cmd:
+                        log_entries.append({
+                            "text": _hint_chip_html(next_cmd),
+                            "cls": "system", "title": None, "as_html": True,
+                        })
 
-        else:  # exceptional
+        else:  # exceptional (soft_threat / causal_violation)
             log_entries.append({"text": narration, "cls": "exception",
                                  "title": None, "as_html": False})
+            # Show what the player could do instead.
+            next_cmd = self._next_hint_cmd()
+            if next_cmd:
+                log_entries.append({
+                    "text": _hint_chip_html(next_cmd, prefix="Try instead: "),
+                    "cls": "system", "title": None, "as_html": True,
+                })
 
         # Latest drama-manager log entry for the DM panel.
         # Search backward so the most meaningful entry wins regardless of order.
@@ -455,6 +630,7 @@ class GameEngine:
             last = self.drama.log[-1]
             dm_entry = {"kind": last.kind, "summary": last.kind, "detail": ""}
 
+        sc_chars, sc_ev = self._scene_state()
         return {
             "log_entries": log_entries,
             "triggered_event_id": triggered_event_id,
@@ -466,6 +642,9 @@ class GameEngine:
             "classification": tag,
             "dm_entry": dm_entry,
             "game_over": self.drama.goal_satisfied(self.state),
+            "scene_characters": sc_chars,
+            "scene_evidence": sc_ev,
+            "scene_leads": self._pending_scene_leads(),
         }
 
     # ---------------- hint-forced execution (Bug-1 fix) ---------------
@@ -566,6 +745,14 @@ class GameEngine:
                 "cls": "narration", "title": "— the case, fully explored —", "as_html": False,
             })
 
+        # Hint chip for the next actionable event after this one.
+        next_cmd = self._next_hint_cmd()
+        if next_cmd and self.drama.remaining:
+            log_entries.append({
+                "text": _hint_chip_html(next_cmd),
+                "cls": "system", "title": None, "as_html": True,
+            })
+
         dm_entry = {
             "kind": "constituent",
             "summary": f"plan event {event_id} fired — {ev.description[:60]}",
@@ -574,6 +761,7 @@ class GameEngine:
             "reveals": ev.reveals,
             "remaining_after": len(self.drama.remaining),
         }
+        sc_chars, sc_ev = self._scene_state()
         return {
             "log_entries": log_entries,
             "triggered_event_id": event_id,
@@ -585,10 +773,165 @@ class GameEngine:
             "classification": "constituent",
             "dm_entry": dm_entry,
             "game_over": self.drama.goal_satisfied(self.state),
+            "scene_characters": sc_chars,
+            "scene_evidence": sc_ev,
+            "scene_leads": self._pending_scene_leads(),
         }
 
     # ---------------- helpers -----------------------------------------
     _MOVEMENT_VERBS = frozenset({"move", "go", "walk", "travel", "head", "visit", "approach", "leave"})
+    _SOCIAL_VERBS   = frozenset({"interview", "question", "ask", "talk", "consult", "confront", "meet",
+                                  "accuse", "arrest", "examine", "inspect", "search", "investigate"})
+
+    def _find_absent_target(self, parsed: dict) -> tuple[str, str | None] | None:
+        """If the action addresses a living character not in the current scene, return
+        (name, location_name_or_None).  Returns None when the target is present or
+        when the verb is 'accuse' (accusation is always allowed regardless of location).
+        """
+        if (parsed.get("verb") or "").lower() == "accuse":
+            return None
+
+        loc_id = self.state["detective"]["location"]
+        loc = self.world.locations.get(loc_id)
+        chars_here = set(loc.characters) if loc else set()
+
+        # Name tokens of characters who ARE present — used to detect when the
+        # action interpreter mis-mapped a name to a wrong character ID.
+        here_tokens: set[str] = set()
+        for cid2 in chars_here:
+            for tok in re.split(r"\W+", (self.state.get(cid2, {}).get("name") or "").lower()):
+                if len(tok) > 3:
+                    here_tokens.add(tok)
+
+        # Check structured character IDs in args first.
+        for arg in parsed.get("args", []):
+            arg_s = str(arg)
+            if not arg_s.startswith("character."):
+                continue
+            # Dead / victim bodies are fine to examine in-place.
+            if not self.state.get(arg_s, {}).get("alive", True):
+                continue
+            if arg_s in chars_here:
+                continue
+            if arg_s not in self.state:
+                continue
+            # If the "absent" character shares a significant name token with
+            # someone who IS here, the interpreter likely mis-mapped the ID.
+            # Treat as if the player meant the present character.
+            absent_name = self.state.get(arg_s, {}).get("name") or ""
+            absent_tokens = {t for t in re.split(r"\W+", absent_name.lower()) if len(t) > 3}
+            if absent_tokens & here_tokens:
+                continue
+            name = absent_name or arg_s.split(".", 1)[-1].replace("_", " ").title()
+            where: str | None = None
+            for lid, loc_obj in self.world.locations.items():
+                if arg_s in loc_obj.characters:
+                    where = loc_obj.name
+                    break
+            return (name, where)
+
+        # Fallback: scan raw command for any character name not present here.
+        raw_lower = (parsed.get("_raw") or "").lower()
+        if raw_lower and (parsed.get("verb") or "").lower() in self._SOCIAL_VERBS:
+            for cid, char_state in self.state.items():
+                if not cid.startswith("character."):
+                    continue
+                if cid in chars_here:
+                    continue
+                if not char_state.get("alive", True):
+                    continue
+                char_name = char_state.get("name", "")
+                if not char_name:
+                    continue
+                name_parts = char_name.lower().split()
+                name_set = {p for p in name_parts if len(p) > 3}
+                if any(len(p) > 3 and p in raw_lower for p in name_parts):
+                    # Suppress if any present character shares a name token.
+                    if name_set & here_tokens:
+                        continue
+                    where = None
+                    for lid, loc_obj in self.world.locations.items():
+                        if cid in loc_obj.characters:
+                            where = loc_obj.name
+                            break
+                    return (char_name, where)
+
+        return None
+
+    def _pending_scene_leads(self) -> list[str]:
+        """Return canonical command strings for ready plan events at the current location.
+
+        Each string is in the same 'question surname' / 'analyze target' format
+        used by hint chips, so clicking or typing any of them reliably triggers
+        the corresponding plan event.
+        """
+        loc_id = self.state["detective"]["location"]
+        executed = set(self.drama.executed)
+        _social = frozenset({"interview", "consult", "visit", "confront", "question", "meet", "talk"})
+        leads: list[str] = []
+
+        for eid in self.drama.remaining:
+            ev = self.plan.events.get(eid)
+            if not ev or ev.location != loc_id:
+                continue
+            required = self.drama._predecessors.get(eid, set())
+            if required and not required.issubset(executed):
+                continue
+
+            verb = ev.verb
+            if verb == "investigate":
+                verb = "search"
+
+            target: str | None = None
+            for arg in ev.args:
+                arg_s = str(arg)
+                if arg_s.startswith("location."):
+                    continue
+                if arg_s.startswith("character."):
+                    if verb in _social:
+                        verb = "question"
+                    name = self.state.get(arg_s, {}).get("name", "")
+                    if name:
+                        target = name.split()[-1].lower()  # surname
+                    break
+                if arg_s.startswith("evidence."):
+                    desc = self._evidence_desc(arg_s)
+                    target = " ".join(desc.replace("_", " ").split()[:3]).lower()
+                    break
+                if arg_s.startswith("object."):
+                    target = arg_s[7:].replace("_", " ").strip().lower()
+                    target = " ".join(target.split()[:3])
+                    break
+                # Plain string argument (e.g. "security_footage")
+                target = arg_s.replace("_", " ").strip().lower()
+                target = " ".join(w for w in target.split() if len(w) > 2)[:40]
+                break
+
+            if target:
+                cmd = f"{verb} {target}".strip()
+                if cmd not in leads:
+                    leads.append(cmd)
+
+        return leads[:4]
+
+    def _scene_state(self) -> tuple[list[str], list[str]]:
+        """Return (scene_characters, scene_evidence) for the detective's current location.
+
+        scene_characters — character IDs that are alive and available here.
+        scene_evidence   — evidence IDs at this location that have not been destroyed.
+        """
+        loc_id = self.state["detective"]["location"]
+        loc = self.world.locations.get(loc_id)
+        chars = [
+            cid for cid in (loc.characters if loc else [])
+            if self.state.get(cid, {}).get("alive", True)
+            and self.state.get(cid, {}).get("available", True)
+        ]
+        evidence = [
+            eid for eid in (loc.evidence if loc else [])
+            if not self.state.get(eid, {}).get("destroyed", False)
+        ]
+        return chars, evidence
 
     def _apply_movement_if_any(self, parsed: dict[str, Any]) -> None:
         # Only move the detective when the player actually used a movement verb.
@@ -607,7 +950,11 @@ class GameEngine:
             Effect("detective", "location", "set", target).apply(self.state)
 
     def _narration_system(self) -> str:
-        """Build a system message that anchors the LLM to the real characters/locations."""
+        """Build a system message that anchors the LLM to the real characters/locations.
+
+        Includes a snapshot of who and what is physically present at the detective's
+        current location so the LLM never writes about absent entities.
+        """
         char_names = []
         for k, v in self.state.items():
             if k.startswith("character."):
@@ -615,43 +962,57 @@ class GameEngine:
                 char_names.append(name)
         loc_names = [loc.name for loc in self.world.locations.values()]
         det = self.config.detective_name
+
+        # Scene snapshot — who/what is physically HERE right now.
+        loc_id = self.state["detective"]["location"]
+        loc = self.world.locations.get(loc_id)
+        here_chars = [
+            self.state.get(cid, {}).get("name", cid.split(".", 1)[-1].replace("_", " ").title())
+            for cid in (loc.characters if loc else [])
+            if self._is_available(cid)
+        ]
+        here_dead = [
+            self.state.get(cid, {}).get("name", cid.split(".", 1)[-1].replace("_", " ").title())
+            for cid in (loc.characters if loc else [])
+            if not self.state.get(cid, {}).get("alive", True)
+        ]
+        here_evidence = [
+            self._evidence_desc(eid)[:60]
+            for eid in (loc.evidence if loc else [])
+            if not self.state.get(eid, {}).get("destroyed", False)
+        ]
+
+        scene_line = (
+            f"Characters physically present NOW: "
+            f"{', '.join(here_chars) if here_chars else 'none (aside from the detective)'}. "
+        )
+        if here_dead:
+            scene_line += f"Bodies present: {', '.join(here_dead)}. "
+        if here_evidence:
+            scene_line += f"Evidence/objects here: {', '.join(here_evidence[:4])}. "
+        scene_line += (
+            "NEVER write dialogue or interaction with a character not in that present list. "
+            "NEVER reference evidence not in that evidence list unless recalling prior knowledge."
+        )
+
+        # Surface pending investigation targets so the LLM can naturally
+        # hint at them without being prescriptive.
+        leads = self._pending_scene_leads()
+        leads_line = (
+            f"Investigation opportunities currently available here: {'; '.join(leads)}. "
+            "If relevant, weave a natural reference to one of these into the narration."
+        ) if leads else ""
+
         return (
             f"You are the narrator for a 1920s London detective noir mystery. "
             f"The player IS {det}. Always address them as 'you' — NEVER say "
             f"'the detective' or invent any other detective name. "
             f"ONLY use these characters: {', '.join(char_names) or 'none listed'}. "
             f"ONLY use these locations: {', '.join(loc_names[:12]) or 'none listed'}. "
+            f"{scene_line} "
+            f"{leads_line}"
             f"Never invent new people or places. Never reveal the real killer's identity."
         )
-
-    def _next_move_hint(self) -> str | None:
-        """One-sentence suggestion about what to try next, for embedding in narration."""
-        loc_id = self.state["detective"]["location"]
-        for eid in self.drama.remaining:
-            ev = self.plan.events.get(eid)
-            if not ev:
-                continue
-            if ev.location == loc_id:
-                for arg in ev.args:
-                    arg_s = str(arg)
-                    if arg_s.startswith("character."):
-                        cname = self.state.get(arg_s, {}).get("name", "")
-                        if cname:
-                            surname = cname.split()[-1]
-                            return f"Perhaps questioning {cname} could reveal more."
-                    elif not arg_s.startswith("location."):
-                        # Strip object./evidence. prefixes so the hint reads naturally
-                        pretty = re.sub(r"^(?:object|evidence)\.", "", arg_s).replace("_", " ")
-                        verb = ev.verb if ev.verb not in {"interview", "consult"} else "question"
-                        return f"You might try to {verb} the {pretty}."
-        for eid in self.drama.remaining:
-            ev = self.plan.events.get(eid)
-            if not ev or not ev.location or ev.location == loc_id:
-                continue
-            loc = self.world.locations.get(ev.location)
-            if loc:
-                return f"There are leads worth pursuing at {loc.name}."
-        return None
 
     def _narrate(
         self,
@@ -672,18 +1033,31 @@ class GameEngine:
         system = self._narration_system()
 
         if tag == "exceptional":
-            next_hint = self._next_move_hint()
-            hint_context = (
-                f" The most useful next step would be: {next_hint}"
-                if next_hint else ""
-            )
+            # For hard_block the player hit a detective-ethics wall; for others
+            # something in the story physics prevented the action.
+            subtype = classification.get("exceptional_subtype", "soft_threat")
+            if subtype == "hard_block":
+                obstacle = (
+                    "your professional judgment as a Scotland Yard inspector — "
+                    "tampering with evidence or threatening witnesses is not how you work"
+                )
+            else:
+                obstacle = f"a physical or narrative obstacle at {loc_name}"
+            next_cmd = self._next_hint_cmd()
+            alt_hint = ""
+            if next_cmd:
+                verb_part = next_cmd.split()[0]
+                rest_part = " ".join(next_cmd.split()[1:]) if len(next_cmd.split()) > 1 else ""
+                if next_cmd.startswith("go to"):
+                    alt_hint = f" Your investigation would be better served by heading toward {rest_part}."
+                else:
+                    alt_hint = f" A more productive avenue would be to {verb_part} {rest_part}.".rstrip()
             prompt = (
-                f"You are {det} at {loc_name}. You tried: \"{raw_cmd}\" but something stopped you.\n\n"
+                f"You are {det} at {loc_name}. You tried: \"{raw_cmd}\" but were stopped by {obstacle}.\n\n"
                 "Write 2 sentences of immersive 1920s-noir prose in second person ('you'). "
-                "First, describe in one sentence why the action can't happen right now — "
-                f"a physical obstacle, your professional judgment, or a practical constraint at {loc_name}. "
-                f"Second, in one sentence, hint at one concrete thing you could do instead to move forward.{hint_context} "
-                "No invented characters. No new locations. No mechanical labels."
+                "Sentence 1: why the action failed (physical/professional/narrative reason). "
+                f"Sentence 2: a concrete alternative direction.{alt_hint} "
+                "No invented characters. No new locations. No mechanical labels like 'drama manager'."
             )
             max_t, temp = 120, 0.55
         elif tag == "constituent":
@@ -691,11 +1065,20 @@ class GameEngine:
             event_hint = ""
             if eid and eid in self.plan.events:
                 event_hint = self.plan.events[eid].narrative[:500]
-            next_hint = self._next_move_hint()
-            hint_line = (
-                f"\nEnd with a subtle one-sentence lead-in to the next step: {next_hint}"
-                if next_hint else ""
-            )
+            # Guide the LLM toward the correct next investigation target without
+            # embedding the exact command (the chip appended by step() does that).
+            next_cmd = self._next_hint_cmd()
+            if next_cmd and not next_cmd.startswith("go to"):
+                target_word = next_cmd.split()[-1]
+                hint_line = (
+                    f"\nEnd with a subtle one-sentence lead toward {target_word}. "
+                    "Do not state it as a command; weave it naturally into the prose."
+                )
+            elif next_cmd:
+                dest = " ".join(next_cmd.split()[2:])
+                hint_line = f"\nEnd with a one-sentence observation that the investigation should continue elsewhere — toward {dest}."
+            else:
+                hint_line = ""
             prompt = (
                 f"You are {det} at {loc_name}. You just: {summary}.\n"
                 f"Plot reference (what was found): {event_hint}\n"
@@ -707,13 +1090,11 @@ class GameEngine:
             )
             max_t, temp = 250, 0.65
         else:  # consistent — no plan progress
-            next_hint = self._next_move_hint()
-            hint_line = f" Then: {next_hint}" if next_hint else ""
             prompt = (
                 f"You are {det} at {loc_name}. You tried: {summary}.\n"
                 "Write ONE sentence in 1920s-noir style acknowledging this led nowhere new. "
-                "Use 'you'. No new plot facts. No invented characters."
-                + hint_line
+                "Use 'you'. No new plot facts. No invented characters or locations not at this scene. "
+                "Do NOT write that the player spoke with or found anyone — they didn't."
             )
             max_t, temp = 100, 0.55
 
@@ -748,12 +1129,27 @@ class GameEngine:
 _WORD_RE = re.compile(r"\s+")
 
 
+def _html_attr(s: str) -> str:
+    """Escape a string for use inside an HTML attribute value."""
+    return s.replace("&", "&amp;").replace('"', "&quot;").replace("'", "&#39;")
+
+
+def _hint_chip_html(cmd: str, prefix: str = "Next lead: ") -> str:
+    """Return inline HTML for a clickable hint chip rendered as a button in the log."""
+    safe_cmd = _html_attr(cmd)
+    return (
+        f'<span style="opacity:.75">{prefix}</span>'
+        f'<button class="chip inline-hint" data-cmd="{safe_cmd}" '
+        f'style="margin-left:4px"><span class="arrow">&gt;</span>{safe_cmd}</button>'
+    )
+
+
 def _empty_step() -> dict:
     return {
         "log_entries": [], "triggered_event_id": None, "moved_to": None,
         "new_knowledge": [], "new_evidence_flags": {}, "characters_encountered": [],
         "characters_interviewed": [], "classification": "noop", "dm_entry": None,
-        "game_over": False,
+        "game_over": False, "scene_characters": [], "scene_evidence": [], "scene_leads": [],
     }
 
 
