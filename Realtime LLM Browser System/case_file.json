@@ -1,0 +1,228 @@
+{
+  "criminal": {
+    "name": "Vivienne Ashford",
+    "motive": "The victim, her half-brother Edmund, discovered she had been forging paintings and selling them as authentic works, threatening to expose her and destroy her reputation as a renowned art curator",
+    "means": "Administered arsenic trioxide dissolved in champagne using a hollow ring mechanism that released the poison when she clinked glasses with Edmund during the toast",
+    "opportunity": "As the gallery curator and event organizer, she had unrestricted access to all areas and personally handed Edmund his champagne glass during the opening ceremony"
+  },
+  "victim": {
+    "name": "Edmund Hartley",
+    "background": "A wealthy art collector and authentication expert, age 52, known for his meticulous research and recent investigations into forgeries flooding the London art market. He was Vivienne's estranged half-brother from their father's first marriage, and they had been competing for their late father's estate"
+  },
+  "conspirators": [
+    {
+      "name": "Dr. Marcus Pemberton",
+      "role": "Provided the arsenic trioxide from his medical practice and created a false time-of-death assessment to mislead investigators",
+      "alibi": "Claims he was examining a painting in the east gallery when Edmund collapsed, but was actually disposing of the poison container in the building's furnace"
+    },
+    {
+      "name": "Charlotte Devereaux",
+      "role": "Vivienne's assistant who created the distraction by staging a false theft alarm in the sculpture room, drawing witnesses away from Edmund at the critical moment",
+      "alibi": "States she was in the office verifying guest credentials when the alarm sounded, but actually triggered it remotely using a mechanical timer she had installed earlier"
+    },
+    {
+      "name": "Thomas Blackwood",
+      "role": "The gallery's security chief who disabled specific camera angles and ensured Edmund's glass was not preserved as evidence by accidentally breaking it during the initial chaos",
+      "alibi": "Claims he was responding to the theft alarm and securing the sculpture room, which is partially true but omits his deliberate destruction of evidence"
+    }
+  ],
+  "suspects": [
+    {
+      "name": "Lady Beatrice Worthington",
+      "motive": "Edmund had recently appraised her family's art collection and discovered several pieces were worthless reproductions, causing her significant financial embarrassment and social humiliation",
+      "alibi": "Was engaged in conversation with the French Ambassador in the main gallery, confirmed by three witnesses including a newspaper photographer"
+    },
+    {
+      "name": "Gregory Sutherland",
+      "motive": "Edmund's former business partner who was forced out of their authentication firm five years ago after a dispute over profit sharing, harboring deep resentment",
+      "alibi": "Claims he was smoking cigars on the terrace with two other guests during the toast, though the timing is somewhat vague"
+    },
+    {
+      "name": "Isabella Rossi",
+      "motive": "An Italian art dealer whose reputation Edmund had damaged by exposing one of her sales as a forgery six months prior, costing her thousands of pounds and several clients",
+      "alibi": "States she was in the powder room repairing her makeup, with no witnesses to confirm, returning just as Edmund collapsed"
+    },
+    {
+      "name": "Arthur Fenwick",
+      "motive": "Edmund's nephew and heir who stood to inherit a substantial fortune, but had recently been cut from the will due to gambling debts and poor life choices",
+      "alibi": "Was visibly intoxicated and arguing with a waiter about champagne refills near the entrance, witnessed by multiple guests but his exact movements remain unclear"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E001",
+      "type": "physical",
+      "description": "A ladies' gold ring with an ornate flower design found near the victim's body, appears to have a small hollow compartment in the band",
+      "real_meaning": "Vivienne's custom-made poison delivery device, commissioned from a discreet jeweler in Paris, the compartment released arsenic when a specific pressure was applied during the toast",
+      "steps_to_uncover": 2
+    },
+    {
+      "id": "E002",
+      "type": "testimonial",
+      "description": "Multiple witnesses report seeing Vivienne and Edmund in an intense private conversation in her office 30 minutes before the opening ceremony",
+      "real_meaning": "Edmund was confronting Vivienne with proof of her forgery operation and giving her one final chance to confess before he went public the following day",
+      "steps_to_uncover": 1
+    },
+    {
+      "id": "E003",
+      "type": "physical",
+      "description": "A partially burned shipping manifest found in the gallery's furnace room listing art supplies from a suspicious Belgian supplier",
+      "real_meaning": "Documentation of the materials Vivienne used to create her forgeries, Dr. Pemberton burned most of it but missed this fragment when disposing of the poison container",
+      "steps_to_uncover": 3
+    },
+    {
+      "id": "E004",
+      "type": "digital",
+      "description": "A telegram received at the gallery two days before the event, addressed to Edmund, stating 'I have the proof you requested regarding the Rembrandt affair'",
+      "real_meaning": "Confirmation from a Dutch expert that the Rembrandt painting Vivienne had recently authenticated and sold was actually her own forgery, the final piece of evidence Edmund needed",
+      "steps_to_uncover": 2
+    },
+    {
+      "id": "E005",
+      "type": "physical",
+      "description": "Traces of white powder found on the rim of Edmund's champagne glass shard, initially dismissed as sugar or dust",
+      "real_meaning": "Arsenic trioxide residue that proves the champagne was poisoned, though Thomas Blackwood tried to destroy the evidence by breaking the glass",
+      "steps_to_uncover": 4
+    },
+    {
+      "id": "E006",
+      "type": "testimonial",
+      "description": "A waiter recalls Charlotte Devereaux asking him to ensure Edmund received a specific glass from a particular tray, which he thought odd but complied",
+      "real_meaning": "Charlotte was ensuring Edmund received the poisoned glass that Vivienne had prepared, demonstrating premeditation and conspiracy",
+      "steps_to_uncover": 2
+    },
+    {
+      "id": "E007",
+      "type": "digital",
+      "description": "Gallery security log shows camera 7 in the main hall malfunctioned exactly 10 minutes before the toast and resumed functioning 15 minutes after Edmund's collapse",
+      "real_meaning": "Thomas Blackwood manually disabled this camera which had the best view of the toast ceremony, creating a deliberate blind spot for the murder",
+      "steps_to_uncover": 3
+    },
+    {
+      "id": "E008",
+      "type": "physical",
+      "description": "A small leather notebook found hidden in Edmund's coat pocket containing cryptic notes about paintings, dates, and the initials 'V.A.' circled repeatedly in red ink",
+      "real_meaning": "Edmund's investigation journal documenting Vivienne Ashford's forgery operation over the past eight months, including dates of sales, buyers, and authentication frauds",
+      "steps_to_uncover": 1
+    }
+  ],
+  "crime_timeline": [
+    {
+      "time": "18:30",
+      "event": "Gallery opening begins, guests arrive and are served champagne in the entrance hall"
+    },
+    {
+      "time": "18:45",
+      "event": "Edmund Hartley arrives and is immediately pulled aside by Vivienne Ashford for a private conversation in her office"
+    },
+    {
+      "time": "19:00",
+      "event": "Charlotte Devereaux instructs a waiter to ensure Edmund receives a specific champagne glass from a designated tray"
+    },
+    {
+      "time": "19:10",
+      "event": "Thomas Blackwood disables security camera 7 under the pretense of technical maintenance"
+    },
+    {
+      "time": "19:15",
+      "event": "Vivienne calls for the ceremonial toast, personally handing Edmund his champagne glass and clinking her ring against his glass during the toast, releasing the arsenic"
+    },
+    {
+      "time": "19:17",
+      "event": "Charlotte triggers the false theft alarm in the sculpture room, causing confusion and drawing witnesses away from the main hall"
+    },
+    {
+      "time": "19:22",
+      "event": "Edmund begins showing symptoms of poisoning, collapsing near the central display"
+    },
+    {
+      "time": "19:24",
+      "event": "Dr. Pemberton is first to reach Edmund, pronounces him in distress and calls for an ambulance while subtly preventing others from proper examination"
+    },
+    {
+      "time": "19:26",
+      "event": "Thomas Blackwood secures the scene and accidentally breaks Edmund's champagne glass while clearing the area"
+    },
+    {
+      "time": "19:35",
+      "event": "Edmund Hartley is pronounced dead, Dr. Pemberton suggests heart failure as the likely cause"
+    },
+    {
+      "time": "19:50",
+      "event": "Dr. Pemberton disposes of the poison container in the gallery furnace, inadvertently leaving the shipping manifest fragment"
+    },
+    {
+      "time": "20:15",
+      "event": "Police arrive and begin preliminary interviews, Thomas Blackwood restores camera 7 to functionality"
+    }
+  ],
+  "solving_timeline": [
+    {
+      "step": 1,
+      "action": "Interview primary witnesses and examine the immediate crime scene, focusing on Edmund's personal effects and the circumstances of his collapse",
+      "target_evidence": [
+        "E002",
+        "E008"
+      ],
+      "max_actions": 3
+    },
+    {
+      "step": 2,
+      "action": "Investigate the suspicious ring found near the body and trace its origin, while questioning Vivienne about her relationship with Edmund and the private conversation",
+      "target_evidence": [
+        "E001",
+        "E004",
+        "E006"
+      ],
+      "max_actions": 3
+    },
+    {
+      "step": 3,
+      "action": "Examine the gallery's security systems and search for physical evidence of tampering or disposal, including checking furnace and waste areas",
+      "target_evidence": [
+        "E003",
+        "E007"
+      ],
+      "max_actions": 3
+    },
+    {
+      "step": 4,
+      "action": "Conduct forensic analysis on the broken champagne glass fragments and demand a proper autopsy overriding Dr. Pemberton's initial assessment",
+      "target_evidence": [
+        "E005"
+      ],
+      "max_actions": 3
+    },
+    {
+      "step": 5,
+      "action": "Confront Dr. Pemberton and Thomas Blackwood with evidence of their involvement, offering reduced charges for testimony against the primary perpetrator",
+      "target_evidence": [
+        "E003",
+        "E005",
+        "E007"
+      ],
+      "max_actions": 3
+    },
+    {
+      "step": 6,
+      "action": "Execute simultaneous arrests of Vivienne Ashford, Charlotte Devereaux, Dr. Pemberton, and Thomas Blackwood, presenting the complete evidence chain demonstrating conspiracy to commit murder",
+      "target_evidence": [
+        "E001",
+        "E002",
+        "E003",
+        "E004",
+        "E005",
+        "E006",
+        "E007",
+        "E008"
+      ],
+      "max_actions": 3
+    }
+  ],
+  "detective": {
+    "name": "Inspector James Rothwell",
+    "personal_stake": "Edmund Hartley was Inspector Rothwell's former mentor who taught him art authentication as a hobby, and Edmund had recently contacted him privately expressing fear for his safety but providing no details",
+    "deadline": "72 hours before Vivienne Ashford is scheduled to leave England permanently for an art acquisition trip to America, after which extradition would be nearly impossible",
+    "dire_consequence": "If the case is not solved quickly, Vivienne will escape justice, her forgery ring will continue operating internationally, and Inspector Rothwell's superior has made clear this failure will end his career as he personally vouched for expedited investigation resources"
+  }
+}
