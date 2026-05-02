@@ -1,0 +1,5 @@
+from google.colab.output import eval_js
+url = eval_js(f'google.colab.kernel.proxyPort({WEB_PORT})')
+print('='*60)
+print(url)
+print('='*60)

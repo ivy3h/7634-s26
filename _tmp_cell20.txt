@@ -1,0 +1,16 @@
+import subprocess, pathlib, sys, os
+log_path = pathlib.Path('logs/vllm_server.log')
+log_path.write_text('')
+
+cmd = [
+    sys.executable, '-m', 'vllm.entrypoints.openai.api_server',
+    '--model', os.environ['LLM_MODEL'],
+    '--host', '0.0.0.0', '--port', str(PORT),
+    '--dtype', os.environ['LLM_DTYPE'],
+    '--max-model-len', '4096',
+    '--gpu-memory-utilization', '0.85',
+    '--enforce-eager',
+    '--api-key', 'EMPTY',
+]
+vllm_proc = subprocess.Popen(cmd, stdout=open(log_path, 'ab'), stderr=subprocess.STDOUT)
+print('vLLM pid =', vllm_proc.pid)

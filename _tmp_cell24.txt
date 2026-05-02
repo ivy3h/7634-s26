@@ -1,0 +1,33 @@
+import sys, pathlib
+sys.path.insert(0, '/content')
+
+from world_builder import build_world, load_world, save_world
+
+# ── Step 1: plan.json ────────────────────────────────────────────────────
+if pathlib.Path('data/plan.json').exists():
+    print('plan.json found — skipping story_to_plan.')
+    from story_to_plan import load_plan
+    plan = load_plan('data/plan.json')
+    print(f'  {len(plan.events)} events, {len(plan.causal_links)} causal links')
+else:
+    print('--- story_to_plan ---')
+    from phase1_story_generator import load_checkpoint
+    from story_to_plan import build_plan
+    case_file   = load_checkpoint('data/case_file.json')
+    plot_points = load_checkpoint('data/plot_points.json')
+    plan = build_plan(case_file, plot_points, out_path='data/plan.json')
+    print(f'  plan.json written: {len(plan.events)} events, {len(plan.causal_links)} causal links')
+
+# ── Step 2: world.json ───────────────────────────────────────────────────
+if pathlib.Path('data/world.json').exists():
+    print('world.json found — skipping world_builder (no LLM needed).')
+    world = load_world('data/world.json')
+else:
+    print('--- world_builder (LLM calls) ---')
+    world = build_world(plan)
+    save_world(world, 'data/world.json')
+    print('  world.json written')
+
+print(f'Ready: {len(world.locations)} locations')
+for lid, loc in world.locations.items():
+    print(f'  {loc.name}: exits={sorted(loc.adjacent)}')

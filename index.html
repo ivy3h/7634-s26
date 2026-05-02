@@ -516,7 +516,7 @@ function renderDmLog() {
 
   const entries = dmVerbose
     ? [...state.dmLog].reverse()
-    : [...state.dmLog].reverse().filter(e => e.kind === "constituent" || e.kind === "exceptional");
+    : [...state.dmLog].reverse().filter(e => e.kind === "constituent" || e.kind === "exceptional" || e.kind === "hard_block");
 
   if (!entries.length) {
     const empty = document.createElement("div");
@@ -533,26 +533,31 @@ function renderDmLog() {
     const div = document.createElement("div");
     div.className = "entry " + e.kind;
     const tLabel = `T${String(e.turn).padStart(2,"0")}`;
+    const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
-    if (dmVerbose) {
-      // Full detail: tag + summary + detail
-      const tag = `[${tLabel} · ${e.kind}]`;
-      div.title = e.summary + (e.detail ? " — " + e.detail : "");
-      div.innerHTML = '<span class="tag">' + tag + '</span> ' + e.summary
-        + (e.detail ? ' — <em>' + e.detail + '</em>' : '');
+    if (e.kind === "constituent") {
+      const desc = esc(e.event_desc || e.summary || "");
+      const reveals = (e.reveals_descs || []).map(d => esc(d)).join("; ");
+      div.innerHTML = `<span class="tag">[${tLabel} ✓]</span> ${desc}`
+        + (reveals ? `<br><span style="color:var(--muted);font-size:0.82em">Reveals: ${reveals}</span>` : "");
+      div.title = e.detail || "";
+    } else if (e.kind === "exceptional") {
+      const rationale = esc((e.rationale || "").slice(0, 100));
+      const removed = (e.removed_descs || []).map(d => esc(d)).join("; ");
+      const added   = (e.added_descs   || []).map(d => esc(d)).join("; ");
+      const goal    = e.goal_verdict ? ` — goal: ${esc(e.goal_verdict)}` : "";
+      div.innerHTML = `<span class="tag">[${tLabel} ⚠ accommodated]</span> DM accepted action + updated plan${goal}`
+        + (rationale ? `<br><span style="color:var(--muted);font-size:0.82em">Why: ${rationale}</span>` : "")
+        + (removed   ? `<br><span style="color:var(--muted);font-size:0.82em">Removed: ${removed}</span>` : "")
+        + (added     ? `<br><span style="color:var(--muted);font-size:0.82em">Added: ${added}</span>`   : "");
+      div.title = e.detail || "";
+    } else if (e.kind === "hard_block") {
+      div.innerHTML = `<span class="tag">[${tLabel} ✗ refused]</span> DM blocked action — world unchanged`;
+      div.title = e.detail || "";
     } else {
-      // Minimal: only constituent and exceptional, condensed one-liner
-      if (e.kind === "constituent") {
-        const desc = e.event_desc ? e.event_desc.slice(0, 60) : e.summary;
-        div.innerHTML = '<span class="tag">[' + tLabel + ' ✓]</span> ' + desc;
-        div.title = e.detail || e.summary;
-      } else {
-        // exceptional
-        let line = e.plan_change || e.summary;
-        if (e.goal_verdict) line += ' — goal: ' + e.goal_verdict;
-        div.innerHTML = '<span class="tag">[' + tLabel + ' ⚠]</span> ' + line;
-        div.title = e.detail || "";
-      }
+      // consistent / move / other — concise single line
+      div.innerHTML = `<span class="tag">[${tLabel} ${e.kind === "move" ? "→" : "·"}]</span> ${esc(e.summary || e.kind)}`;
+      div.title = e.detail || "";
     }
     list.appendChild(div);
   });
@@ -1694,14 +1699,18 @@ async function _runCommandViaAPI(raw, forceEventId) {
     if (data.dm_entry) {
       state.dmLog.push({
         turn: state.turns,
-        kind:        data.dm_entry.kind || "consistent",
-        summary:     data.dm_entry.summary || "",
-        detail:      data.dm_entry.detail || "",
+        kind:          data.dm_entry.kind || "consistent",
+        summary:       data.dm_entry.summary || "",
+        detail:        data.dm_entry.detail || "",
         // extra fields for minimal view
-        event_desc:  data.dm_entry.event_desc  || "",
-        plan_change: data.dm_entry.plan_change || "",
-        goal_verdict:data.dm_entry.goal_verdict|| "",
-        reveals:     data.dm_entry.reveals     || [],
+        event_desc:    data.dm_entry.event_desc   || "",
+        plan_change:   data.dm_entry.plan_change  || "",
+        goal_verdict:  data.dm_entry.goal_verdict || "",
+        reveals:       data.dm_entry.reveals      || [],
+        reveals_descs: data.dm_entry.reveals_descs|| [],
+        removed_descs: data.dm_entry.removed_descs|| [],
+        added_descs:   data.dm_entry.added_descs  || [],
+        rationale:     data.dm_entry.rationale    || "",
         remaining_after: data.dm_entry.remaining_after ?? null,
         t: Date.now(),
       });

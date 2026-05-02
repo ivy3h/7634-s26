@@ -1,0 +1,21 @@
+import pathlib, json, sys
+
+have_world = pathlib.Path('data/world.json').exists()
+have_plan  = pathlib.Path('data/plan.json').exists()
+
+print(f'plan.json  : {"found" if have_plan else "will be generated from Phase I files"}')
+print(f'world.json : {"found" if have_world else "will be generated (needs LLM)"}')
+
+if not have_plan:
+    required = ['data/plot_points.json', 'data/case_file.json']
+    missing  = [f for f in required if not pathlib.Path(f).exists()]
+    if missing:
+        print('MISSING — needed to generate plan.json:')
+        for f in missing: print(' •', f)
+        sys.exit(1)
+    plot_points = json.loads(pathlib.Path('data/plot_points.json').read_text())
+    case_file   = json.loads(pathlib.Path('data/case_file.json').read_text())
+    print(f'plot_points.json : {len(plot_points)} beats')
+    print(f'case_file.json   : victim = {case_file.get("victim", {}).get("name", "?")}')
+
+print('Ready.')

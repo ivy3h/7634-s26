@@ -1,0 +1,123 @@
+import sys, pathlib
+sys.path.insert(0, '/content')
+
+from story_to_plan import load_plan
+from world_builder import load_world
+from game_engine import EngineConfig, GameEngine
+
+_t_plan   = load_plan('data/plan.json')
+_t_world  = load_world('data/world.json')
+_t_engine = GameEngine(
+    _t_plan, _t_world,
+    EngineConfig(narrate_with_llm=True, log_dir=pathlib.Path('logs/test')),
+)
+
+def _path_summary(eng):
+    if eng.drama.goal_satisfied(eng.state):
+        return 'GOAL SATISFIED — case ready to close'
+    rem = len(eng.drama.remaining)
+    return f'{rem} plan event(s) remaining — investigation ongoing'
+
+def _hint_commands(eng):
+    loc_id = eng.state['detective']['location']
+    hints = []
+    for eid in eng.drama.remaining:
+        ev = eng.drama.plan.events[eid]
+        if ev.location != loc_id:
+            continue
+        verb = ev.verb
+        if verb in ('examine', 'search', 'investigate', 'observe'):
+            verb = 'examine'
+        elif verb in ('interview', 'consult', 'confront', 'visit'):
+            verb = 'question'
+        arg_str = ''
+        for a in ev.args:
+            s = str(a)
+            if s.startswith('character.'):
+                name = eng.state.get(s, {}).get('name', s.split('.')[-1].replace('_', ' '))
+                arg_str = name.split()[-1]
+                break
+            elif s.startswith('evidence.'):
+                desc = eng.state.get(s, {}).get('description', '')
+                arg_str = ' '.join(desc.split()[:4]) if desc else s
+                break
+            elif not s.startswith('location.'):
+                arg_str = s[:35]
+                break
+        hint = f'{verb} {arg_str}'.strip() if arg_str else verb
+        if hint not in hints:
+            hints.append(hint)
+        if len(hints) >= 4:
+            break
+    return hints
+
+def _print_location(eng):
+    print(eng.render_location())
+    hints = _hint_commands(eng)
+    if hints:
+        print('  Try: ' + '  |  '.join(hints))
+
+print('=' * 56)
+print('  Interactive game test  (type quit to exit)')
+print('=' * 56)
+print()
+print(_t_engine.render_map())
+print()
+_print_location(_t_engine)
+
+while True:
+    try:
+        cmd = input('\n> ').strip()
+    except (EOFError, KeyboardInterrupt):
+        print('\n[session ended]')
+        break
+    if cmd.lower() in ('quit', 'exit', 'q'):
+        print('[session ended]')
+        break
+    if not cmd:
+        continue
+
+    result = _t_engine.step(cmd)
+    tag    = result['classification']
+
+    # ── DM log ───────────────────────────────────────────────────
+    dm_line = f'[DM] {tag}'
+    if result.get('triggered_event_id'):
+        dm_line += f"  event={result['triggered_event_id']}"
+    if result.get('moved_to'):
+        dm_line += f"  moved→{result['moved_to']}"
+    print(dm_line)
+
+    if tag == 'exceptional':
+        for entry in reversed(_t_engine.drama.log):
+            if entry.kind == 'accommodation':
+                p = entry.payload
+                print(f"     removed  : {p.get('removed_events', [])}")
+                print(f"     added    : {p.get('replacement_event_ids', [])}")
+                rat = (p.get('rationale') or '')[:200]
+                if rat:
+                    print(f'     rationale: {rat}')
+                break
+        for entry in reversed(_t_engine.drama.log):
+            if entry.kind == 'classification':
+                threats = [t.get('event_id') for t in entry.payload.get('soft_threats', [])]
+                if threats:
+                    print(f'     threats  : {threats}')
+                break
+
+    print(f'[DM] {_path_summary(_t_engine)}')
+
+    # ── Narration ────────────────────────────────────────────────
+    print()
+    for entry in result.get('log_entries', []):
+        if entry.get('title'):
+            print(f"  {entry['title']}")
+        print(f"  {entry['text']}")
+
+    # ── Location snapshot + hints ────────────────────────────────
+    print()
+    _print_location(_t_engine)
+
+    if result.get('game_over'):
+        print('\n=== CASE SOLVED ===')
+        break

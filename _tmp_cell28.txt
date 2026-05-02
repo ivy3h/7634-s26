@@ -1,0 +1,36 @@
+import subprocess, pathlib, socket
+sys.path.insert(0, '/content/web')
+
+def _wait_port_free(port, timeout=10):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.socket() as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind(('0.0.0.0', port))
+            return True
+        except OSError:
+            time.sleep(0.3)
+    return False
+
+# Kill previous process (SIGKILL — cannot be ignored) then wait for port.
+if '_web_proc' in globals() and _web_proc is not None:
+    _web_proc.kill()
+    _web_proc.wait()
+    _web_proc = None
+_wait_port_free(WEB_PORT)
+
+log_path = pathlib.Path('logs/web/uvicorn.log')
+log_path.parent.mkdir(parents=True, exist_ok=True)
+
+_web_proc = subprocess.Popen(
+    [sys.executable, '-m', 'uvicorn', 'api_server:app',
+     '--host', '0.0.0.0', '--port', str(WEB_PORT), '--log-level', 'warning'],
+    cwd='/content/web',
+    stdout=open(log_path, 'ab'), stderr=subprocess.STDOUT,
+)
+time.sleep(2)
+if _web_proc.poll() is None:
+    print(f'Web server running on port {WEB_PORT}')
+else:
+    print(f'ERROR: web server exited immediately — check {log_path}')

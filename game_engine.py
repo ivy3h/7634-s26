@@ -365,15 +365,9 @@ class GameEngine:
                 if where_absent:
                     msg += f" You might find them at {where_absent}."
                 self._log_turn(turn, raw, parsed, classification, [], None, msg)
-                next_cmd = self._next_hint_cmd()
                 out_entries: list[dict[str, Any]] = [
                     {"text": msg, "cls": "outcome", "title": None, "as_html": False}
                 ]
-                if next_cmd:
-                    out_entries.append({
-                        "text": _hint_chip_html(next_cmd),
-                        "cls": "system", "title": None, "as_html": True,
-                    })
                 sc_chars, sc_ev = self._scene_state()
                 return {
                     "log_entries": out_entries, "triggered_event_id": None,
@@ -390,17 +384,11 @@ class GameEngine:
         if tag == "exceptional" and subtype == "hard_block":
             narration = self._narrate(parsed, classification, [], None)
             self._log_turn(turn, raw, parsed, classification, [], None, narration)
-            next_cmd = self._next_hint_cmd()
             out_entries = [{"text": narration, "cls": "exception", "title": None, "as_html": False}]
-            if next_cmd:
-                out_entries.append({
-                    "text": _hint_chip_html(next_cmd, prefix="Try instead: "),
-                    "cls": "system", "title": None, "as_html": True,
-                })
             sc_chars, sc_ev = self._scene_state()
             dm_entry_hard = {
-                "kind": "exceptional",
-                "summary": "hard_block — destructive action refused, world unchanged",
+                "kind": "hard_block",
+                "summary": f"Action refused — destructive command blocked, world unchanged",
                 "detail": f"command: {raw}",
             }
             return {
@@ -494,13 +482,6 @@ class GameEngine:
                             "Your notebook is full. Type 'accuse <suspect>'.",
                     "cls": "narration", "title": "— the case, fully explored —", "as_html": False,
                 })
-            # Append a hint chip pointing to the next actionable event.
-            next_cmd = self._next_hint_cmd()
-            if next_cmd and self.drama.remaining:
-                log_entries.append({
-                    "text": _hint_chip_html(next_cmd),
-                    "cls": "system", "title": None, "as_html": True,
-                })
 
         elif tag == "consistent":
             if moved_to:
@@ -511,15 +492,14 @@ class GameEngine:
                 if loc:
                     log_entries.append({"text": loc.description,
                                          "cls": "outcome", "title": None, "as_html": False})
-                    chars = [
-                        self.state.get(cid, {}).get("name", cid)
-                        for cid in loc.characters
-                        if self.state.get(cid, {}).get("alive", True)
-                    ]
+                    # Use authoritative scene state so sketch reflects current characters/evidence.
+                    sc_chars, sc_ev = self._scene_state()
+                    chars = [self.state.get(cid, {}).get("name", cid) for cid in sc_chars]
+                    # Only show evidence already discovered — undiscovered items are invisible to the detective.
                     items = [
-                        self._evidence_desc(eid)
-                        for eid in loc.evidence
-                        if not self.state.get(eid, {}).get("destroyed", False)
+                        self._evidence_desc(eid)[:50]
+                        for eid in sc_ev
+                        if self.state.get(eid, {}).get("discovered", False)
                     ]
                     sketch = []
                     if chars:
@@ -529,26 +509,7 @@ class GameEngine:
                     if sketch:
                         log_entries.append({"text": " ".join(sketch),
                                              "cls": "outcome", "title": None, "as_html": False})
-                    characters_encountered = list(loc.characters)
-                # Show pending investigation leads so the player knows what to do here.
-                leads = self._pending_scene_leads()
-                if leads:
-                    lead_chips = "  ".join(
-                        f'<button class="chip inline-hint" data-cmd="{_html_attr(c)}" '
-                        f'style="margin-right:4px"><span class="arrow">&gt;</span>{c}</button>'
-                        for c in leads
-                    )
-                    log_entries.append({
-                        "text": f'<span style="opacity:.75">Leads here: </span>{lead_chips}',
-                        "cls": "system", "title": None, "as_html": True,
-                    })
-                # Hint chip for the new location.
-                next_cmd = self._next_hint_cmd()
-                if next_cmd:
-                    log_entries.append({
-                        "text": _hint_chip_html(next_cmd),
-                        "cls": "system", "title": None, "as_html": True,
-                    })
+                    characters_encountered = list(sc_chars)
             else:
                 log_entries.append({"text": narration, "cls": "outcome",
                                      "title": None, "as_html": False})
@@ -556,34 +517,13 @@ class GameEngine:
                 # wrong location or verb).
                 hint = self._pending_event_hint(raw, self.state["detective"]["location"])
                 if hint:
-                    if hint.startswith("HINT_CMD:"):
-                        cmd = hint[len("HINT_CMD:"):]
-                        log_entries.append({
-                            "text": _hint_chip_html(cmd, prefix="You might try: "),
-                            "cls": "system", "title": None, "as_html": True,
-                        })
-                    else:
-                        log_entries.append({"text": hint, "cls": "system",
-                                             "title": None, "as_html": False})
-                else:
-                    # General next-step hint when character-specific one isn't applicable.
-                    next_cmd = self._next_hint_cmd()
-                    if next_cmd:
-                        log_entries.append({
-                            "text": _hint_chip_html(next_cmd),
-                            "cls": "system", "title": None, "as_html": True,
-                        })
+                    cmd = hint[len("HINT_CMD:"):] if hint.startswith("HINT_CMD:") else hint
+                    log_entries.append({"text": f"You might try: {cmd}",
+                                         "cls": "system", "title": None, "as_html": False})
 
         else:  # exceptional (soft_threat / causal_violation)
             log_entries.append({"text": narration, "cls": "exception",
                                  "title": None, "as_html": False})
-            # Show what the player could do instead.
-            next_cmd = self._next_hint_cmd()
-            if next_cmd:
-                log_entries.append({
-                    "text": _hint_chip_html(next_cmd, prefix="Try instead: "),
-                    "cls": "system", "title": None, "as_html": True,
-                })
 
         # Latest drama-manager log entry for the DM panel.
         # Search backward so the most meaningful entry wins regardless of order.
@@ -591,27 +531,48 @@ class GameEngine:
         for entry in reversed(self.drama.log):
             p = entry.payload
             if entry.kind == "accommodation":
-                removed = p.get("removed_events", [])
-                added   = p.get("replacement_event_ids", [])
-                verdict = p.get("goal_reachability", {}).get("verdict", "unknown")
+                removed      = p.get("removed_events", [])
+                removed_descs= p.get("removed_descriptions", [])
+                added        = p.get("replacement_event_ids", [])
+                added_descs  = p.get("replacement_descriptions", [])
+                rationale    = p.get("rationale", "")
+                verdict      = (p.get("goal_reachability") or {}).get("verdict", "unknown")
+                removed_text = "; ".join(d[:60] for d in removed_descs) or str(removed)
+                added_text   = "; ".join(d[:60] for d in added_descs) or str(added)
                 dm_entry = {
                     "kind": "exceptional",
-                    "summary": f"plan modified — removed {len(removed)}, added {len(added)} event(s)",
-                    "detail": f"goal: {verdict} | removed: {removed} | added: {added}",
+                    "summary": f"Drama Manager intervened — removed {len(removed)}, added {len(added)} plot event(s)",
+                    "detail": (
+                        f"Removed: {removed_text or 'none'} | "
+                        f"Added: {added_text or 'none'} | "
+                        f"Reason: {rationale[:100] or 'n/a'} | Goal: {verdict}"
+                    ),
                     "plan_change": f"removed {len(removed)}, added {len(added)} event(s)",
                     "goal_verdict": verdict,
+                    "removed_descs": removed_descs,
+                    "added_descs": added_descs,
+                    "rationale": rationale,
                 }
                 break
             if entry.kind == "executed_constituent":
-                eid  = p.get("event_id", "")
-                desc = p.get("event_description", "")
-                rem  = p.get("remaining_after", "?")
+                eid   = p.get("event_id", "")
+                desc  = p.get("event_description", "")
+                rem   = p.get("remaining_after", "?")
+                reveals = p.get("reveals", [])
+                reveals_descs = [
+                    self._evidence_desc(r if r.startswith("evidence.") else "evidence." + r)[:60]
+                    for r in reveals
+                ]
                 dm_entry = {
                     "kind": "constituent",
-                    "summary": f"plan event {eid} fired — {desc[:60]}",
-                    "detail": f"reveals: {p.get('reveals', [])} | remaining: {rem}",
+                    "summary": f"Plot event executed: {desc[:80]}",
+                    "detail": (
+                        f"Evidence revealed: {'; '.join(reveals_descs) or 'none'} | "
+                        f"Remaining plot events: {rem}"
+                    ),
                     "event_desc": desc,
-                    "reveals": p.get("reveals", []),
+                    "reveals": reveals,
+                    "reveals_descs": reveals_descs,
                     "remaining_after": rem,
                 }
                 break
@@ -619,11 +580,13 @@ class GameEngine:
                 cls_val = p.get("classification", "consistent")
                 matched = p.get("matched_event_id") or "none"
                 rem     = p.get("remaining_count", "?")
-                active  = len(p.get("active_links", []))
+                matched_desc = ""
+                if matched != "none" and matched in self.plan.events:
+                    matched_desc = f" ({self.plan.events[matched].description[:50]})"
                 dm_entry = {
                     "kind": cls_val,
-                    "summary": f"{cls_val} — matched={matched} | {rem} events remaining",
-                    "detail": f"active causal links: {active} | cs_hint: {p.get('cs_hint', '')}",
+                    "summary": f"Action classified as {cls_val}",
+                    "detail": f"Matched event: {matched}{matched_desc} | Remaining: {rem} plot events",
                 }
                 break
         if dm_entry is None and self.drama.log:
@@ -745,20 +708,20 @@ class GameEngine:
                 "cls": "narration", "title": "— the case, fully explored —", "as_html": False,
             })
 
-        # Hint chip for the next actionable event after this one.
-        next_cmd = self._next_hint_cmd()
-        if next_cmd and self.drama.remaining:
-            log_entries.append({
-                "text": _hint_chip_html(next_cmd),
-                "cls": "system", "title": None, "as_html": True,
-            })
-
+        reveals_descs = [
+            self._evidence_desc(r if r.startswith("evidence.") else "evidence." + r)[:60]
+            for r in ev.reveals
+        ]
         dm_entry = {
             "kind": "constituent",
-            "summary": f"plan event {event_id} fired — {ev.description[:60]}",
-            "detail": f"reveals: {ev.reveals} | remaining: {len(self.drama.remaining)}",
+            "summary": f"Plot event executed: {ev.description[:80]}",
+            "detail": (
+                f"Evidence revealed: {'; '.join(reveals_descs) or 'none'} | "
+                f"Remaining plot events: {len(self.drama.remaining)}"
+            ),
             "event_desc": ev.description,
             "reveals": ev.reveals,
+            "reveals_descs": reveals_descs,
             "remaining_after": len(self.drama.remaining),
         }
         sc_chars, sc_ev = self._scene_state()

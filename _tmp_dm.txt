@@ -1,0 +1,27 @@
+  entries.forEach(e => {
+    const div = document.createElement("div");
+    div.className = "entry " + e.kind;
+    const tLabel = `T${String(e.turn).padStart(2,"0")}`;
+
+    if (dmVerbose) {
+      // Full detail: tag + summary + detail
+      const tag = `[${tLabel} · ${e.kind}]`;
+      div.title = e.summary + (e.detail ? " — " + e.detail : "");
+      div.innerHTML = '<span class="tag">' + tag + '</span> ' + e.summary
+        + (e.detail ? ' — <em>' + e.detail + '</em>' : '');
+    } else {
+      // Minimal: only constituent and exceptional, condensed one-liner
+      if (e.kind === "constituent") {
+        const desc = e.event_desc ? e.event_desc.slice(0, 60) : e.summary;
+        div.innerHTML = '<span class="tag">[' + tLabel + ' ✓]</span> ' + desc;
+        div.title = e.detail || e.summary;
+      } else {
+        // exceptional
+        let line = e.plan_change || e.summary;
+        if (e.goal_verdict) line += ' — goal: ' + e.goal_verdict;
+        div.innerHTML = '<span class="tag">[' + tLabel + ' ⚠]</span> ' + line;
+        div.title = e.detail || "";
+      }
+    }
+    list.appendChild(div);
+  

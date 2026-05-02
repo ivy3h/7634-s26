@@ -75,7 +75,9 @@
         "location.drawing_room",
         "location.gentlemens_club"
       ],
-      "characters": [],
+      "characters": [
+        "character.lady_beatrice_worthington"
+      ],
       "evidence": [
         "evidence.E001",
         "evidence.E002"
@@ -100,7 +102,7 @@
     "location.grand_imperial_hotel": {
       "id": "location.grand_imperial_hotel",
       "name": "The Grand Imperial Hotel",
-      "description": "A palatial establishment on Park Lane where crystal chandeliers cast prismatic light across marble floors, and liveried porters glide silently through corridors thick with cigar smoke and whispered scandal. Behind its gilt-edged fa\u00e7ade of old money respectability, the Grand Imperial harbors secrets in every shadowed alcove and private suite.",
+      "description": "A palatial establishment on Park Lane where crystal chandeliers cast prismatic light across marble floors, and liveried porters glide silently through corridors thick with cigar smoke and whispered scandal. Behind its gilt-edged façade of old money respectability, the Grand Imperial harbors secrets in every shadowed alcove and private suite.",
       "adjacent": [
         "location.drawing_room",
         "location.security_office"
