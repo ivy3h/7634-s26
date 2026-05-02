@@ -21,6 +21,8 @@ Supports the browser game with real-time LLM reasoning with Qwen models instead 
 
 In the ```Realtime LLM Browser System``` folder, run the Colab notebook ```Phase II Standalone Web System.ipynb``` using T4/L4/A100 GPU, then following the notebook instructions to install dependencies and set up vLLM servers and web server. Upload the other pre-generated files in the ```Realtime LLM Browser System``` folder to the runtime ```Data``` folder for gaining similar experience as the final video walkthrough. The notebook will then generate a local link for accessing the live browser game. The Colab runtime must stay alive during the interactions. 
 
+Typical Runtime and Cost: No LLM API cost, potential Colab unit cost, 10~20 minutes setup 
+
 
 ## Layout
 
