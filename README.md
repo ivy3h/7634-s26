@@ -1,14 +1,26 @@
 # Phase II — Interactive Detective Mystery (Template 2: Intervention & Accommodation)
 
+## Team:  Scheming Penguin (Ivy He, Peilin Yang, Xinyue Tao)
+
 An interactive text game built on top of the Phase I mystery generator. The player is the detective. Every command is classified as **constituent**, **consistent**, or **exceptional** by a drama manager that repairs the plan when the player breaks it.
 
 ## 🎮 Play in your browser
+
+### Offline Version: Directly accessible without needing extra deployment
 
 **[→ https://ivy-he.com/7634-s26/](https://ivy-he.com/7634-s26/)**
 
 Free-text detective game built on top of this repo's generated story. You play Inspector Rothwell investigating the murder of Edmund Hartley. Type commands (≤ 8 words) like `examine body`, `go to forensic laboratory`, `question sutherland`, or `accuse vivienne`. The drama manager watches every move and only accepts an accusation once you've uncovered enough evidence.
 
 Prefer to just read? The novel version is at **[/web/story_interactive.html](https://ivy-he.com/7634-s26/web/story_interactive.html)** — 11 chapters with a guess-the-killer gate before the Resolution and Epilogue unlock.
+
+
+### Live Version: Require setting up local vLLM and web server through Colab notebook
+
+Supports the browser game with real-time LLM reasoning with Qwen models instead of local reasoning, though cost may apply for using Colab GPU units and quality of response may vary with different LLM models.
+
+In the ```Realtime LLM Browser System``` folder, run the Colab notebook ```Phase II Standalone Web System.ipynb``` using T4/L4/A100 GPU, then following the notebook instructions to install dependencies and set up vLLM servers and web server. Upload the other pre-generated files in the ```Realtime LLM Browser System``` folder to the runtime ```Data``` folder for gaining similar experience as the final video walkthrough. The notebook will then generate a local link for accessing the live browser game. The Colab runtime must stay alive during the interactions. 
+
 
 ## Layout
 
