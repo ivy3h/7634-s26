@@ -27,6 +27,9 @@ Typical Runtime and Cost: No LLM API cost, potential Colab unit cost, 10~20 minu
 
 See ```Text Version of System Walkthrough.pdf``` for walkthroughs of different user actions that trigger different system response and Drama Manager actions.
 
+### Detailed Code Documentation
+
+See ```Code Documentation.md```
 
 ## Layout
 
