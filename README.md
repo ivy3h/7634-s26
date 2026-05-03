@@ -19,17 +19,17 @@ Prefer to just read? The novel version is at **[/web/story_interactive.html](htt
 
 Supports the browser game with real-time LLM reasoning with Qwen models instead of local reasoning, though cost may apply for using Colab GPU units and quality of response may vary with different LLM models.
 
-In the ```Realtime LLM Browser System``` folder, run the Colab notebook ```Phase II Standalone Web System.ipynb``` using T4/L4/A100 GPU, then following the notebook instructions to install dependencies and set up vLLM servers and web server. Upload the other pre-generated files in the ```Realtime LLM Browser System``` folder to the runtime ```Data``` folder for gaining similar experience as the final video walkthrough. The notebook will then generate a local link for accessing the live browser game. The Colab runtime must stay alive during the interactions. 
+In the ```\RealtimeLLMBrowserSystem``` folder, run the Colab notebook **[Phase_II_Standalone_Web_System.ipynb](/\RealtimeLLMBrowserSystem/Phase_II_Standalone_Web_System.ipynb)** using T4/L4/A100 GPU, then following the notebook instructions to install dependencies and set up vLLM servers and web server. Upload the other pre-generated files in the ```\RealtimeLLMBrowserSystem``` folder to the runtime ```\Data``` folder for gaining similar experience as the final video walkthrough. The notebook will then generate a local link for accessing the live browser game. The Colab runtime must stay alive during the interactions. 
 
 Typical Runtime and Cost: No LLM API cost, potential Colab unit cost, 10~20 minutes setup 
 
 ### Text of System Walkthrough 
 
-See ```Text Version of System Walkthrough.pdf``` for walkthroughs of different user actions that trigger different system response and Drama Manager actions.
+See **[Text_Version_of_System_Walkthrough.pdf](/Text_Version_of_System_Walkthrough.pdf)** for walkthroughs of different user actions that trigger different system response and Drama Manager actions.
 
 ### Detailed Code Documentation
 
-See ```Code Documentation.md```
+See **[Code_Documentation.md](/Code_Documentation.md)**
 
 ## Layout
 
