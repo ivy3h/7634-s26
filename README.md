@@ -23,6 +23,10 @@ In the ```Realtime LLM Browser System``` folder, run the Colab notebook ```Phase
 
 Typical Runtime and Cost: No LLM API cost, potential Colab unit cost, 10~20 minutes setup 
 
+### Text of System Walkthrough 
+
+See ```Text Version of System Walkthrough.pdf``` for walkthroughs of different user actions that trigger different system response and Drama Manager actions.
+
 
 ## Layout
 
